@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "audit:budget": "node tools/audit-budget.mjs",
     "build": "node build.mjs",
+    "package": "npm run build && node tools/package.mjs",
+    "screenshots": "npm run build && playwright test --config=store/playwright.config.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",

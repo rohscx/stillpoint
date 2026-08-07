@@ -1,9 +1,9 @@
 :host {
-  --sp-bg: #faf9f7;
+  --sp-bg: #ffffff;
   --sp-fg: #1a1a1a;
   --sp-orp: #d0021b;
   --sp-rule: #c9c6c1;
-  --sp-scrim: rgba(250, 249, 247, 0.94);
+  --sp-scrim: rgba(244, 242, 239, 0.985);
   --sp-ui: #8a8783;
   --sp-font-size: 36px;
   --sp-font-stack: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
@@ -20,30 +20,30 @@
 
 @media (prefers-color-scheme: dark) {
   :host {
-    --sp-bg: #16181c;
+    --sp-bg: #1b1e23;
     --sp-fg: #e8e6e3;
     --sp-orp: #ff4a4a;
     --sp-rule: #3a3d42;
-    --sp-scrim: rgba(12, 13, 15, 0.94);
+    --sp-scrim: rgba(10, 11, 13, 0.985);
     --sp-ui: #6e7278;
   }
 }
 
 :host([data-theme='light']) {
-  --sp-bg: #faf9f7;
+  --sp-bg: #ffffff;
   --sp-fg: #1a1a1a;
   --sp-orp: #d0021b;
   --sp-rule: #c9c6c1;
-  --sp-scrim: rgba(250, 249, 247, 0.94);
+  --sp-scrim: rgba(244, 242, 239, 0.985);
   --sp-ui: #8a8783;
 }
 
 :host([data-theme='dark']) {
-  --sp-bg: #16181c;
+  --sp-bg: #1b1e23;
   --sp-fg: #e8e6e3;
   --sp-orp: #ff4a4a;
   --sp-rule: #3a3d42;
-  --sp-scrim: rgba(12, 13, 15, 0.94);
+  --sp-scrim: rgba(10, 11, 13, 0.985);
   --sp-ui: #6e7278;
 }
 
@@ -81,6 +81,7 @@
   height: var(--sp-frame-height);
   padding: var(--sp-frame-padding-y) var(--sp-frame-padding-x);
   overflow: hidden;
+  border: 1px solid var(--sp-rule);
   border-radius: var(--sp-frame-radius);
   background: var(--sp-bg);
   font-weight: 400;

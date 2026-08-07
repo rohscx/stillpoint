@@ -57,3 +57,6 @@ Stillpoint is an independent reimplementation of a reading technique popularised
 - `npm test` runs the Vitest unit suite for tokenization, ORP selection, timing, scheduling, extraction cleanup, heuristics, and settings migration/storage.
 - `npm run test:e2e` runs Playwright coverage for Redicle alignment, keyboard behavior, extraction and fallbacks, settings, pause/error states, and performance.
 - `npm run build` creates the unpacked extension in `dist/` and reports raw and gzipped JavaScript bundle sizes.
+- `npm run audit:budget` verifies the shipped size, dependency, manifest, and permission budgets.
+- `npm run screenshots` builds and regenerates the 1280×800 store images in `store/screenshots/`.
+- `npm run package` builds and verifies the deterministic Chrome Web Store zip at the repository root.

@@ -220,6 +220,7 @@ feels wrong).
 | Top/bottom rules | 1 px, full inner width, `--sp-rule` colour |
 | Hash marks | 1 px wide, length = 0.45 × font-size, vertically flush against the rules, horizontally centred on the ORP column |
 | Word baseline | vertically centred between the rules |
+| Frame border | 1 px `--sp-rule`, so the frame reads as a bounded box |
 | Frame corners | 4 px radius |
 | Frame padding | 0.75 × font-size vertical, 1 `ch` horizontal |
 
@@ -258,14 +259,23 @@ Two themes, following the page's `prefers-color-scheme` by default, user-overrid
 
 | Token | Light | Dark |
 |---|---|---|
-| `--sp-bg` (frame) | `#FAF9F7` | `#16181C` |
+| `--sp-bg` (frame) | `#FFFFFF` | `#1B1E23` |
 | `--sp-fg` (word) | `#1A1A1A` | `#E8E6E3` |
 | `--sp-orp` (ORP glyph) | `#D0021B` | `#FF4A4A` |
 | `--sp-rule` (rules, hash marks) | `#C9C6C1` | `#3A3D42` |
-| `--sp-scrim` (page backdrop) | `rgba(250,249,247,0.94)` | `rgba(12,13,15,0.94)` |
+| `--sp-scrim` (page backdrop) | `rgba(244,242,239,0.985)` | `rgba(10,11,13,0.985)` |
 | `--sp-ui` (controls, dimmed) | `#8A8783` | `#6E7278` |
 
 The ORP red is the signature. Do not soften it, do not animate it, do not add a glow.
+
+Two constraints on the pair above, both learned the hard way from a store screenshot:
+
+- **The frame colour must differ from the scrim.** An earlier revision set both to
+  `#FAF9F7`, so the Redicle rendered as two floating rules with no box at all.
+- **The scrim must be opaque enough that page text cannot be read through it.** At 0.94
+  the underlying prose stayed legible immediately left and right of the word — which
+  defeats the entire premise, since the eye has something to saccade to. 0.985 leaves a
+  whisper of the page for context without offering anything readable.
 
 ### 3.4 Chrome and controls
 
