@@ -75,14 +75,23 @@ test('settings round-trip through shared storage and fields suppress reader shor
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
     root.querySelector<HTMLInputElement>('.sp-settings input[aria-label="Reading speed"]')?.focus();
   });
+  const positionBeforeFieldShortcut = await page.evaluate(() => {
+    const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
+    return root.querySelector('.sp-redicle')?.getBoundingClientRect().x;
+  });
   await page.keyboard.press('r');
   await page.keyboard.press('1');
   await page.keyboard.press('Space');
   await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Alt+ArrowLeft');
   expect(await page.evaluate(() => {
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
     return root.querySelector('.sp-word')?.textContent;
   })).toBe('a');
+  expect(await page.evaluate(() => {
+    const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
+    return root.querySelector('.sp-redicle')?.getBoundingClientRect().x;
+  })).toBe(positionBeforeFieldShortcut);
   expect(await page.evaluate(() => (window as unknown as { __pageKeydownCount: number }).__pageKeydownCount)).toBe(0);
 
   await page.evaluate(() => {

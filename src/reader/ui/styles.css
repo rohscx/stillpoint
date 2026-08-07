@@ -75,6 +75,13 @@
   transform: translate(-50%, -50%);
 }
 
+.sp-reader-chrome {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+}
+
 .sp-redicle {
   position: relative;
   width: 100%;
@@ -86,7 +93,12 @@
   background: var(--sp-bg);
   font-weight: 400;
   letter-spacing: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
+
+.sp-redicle.sp-dragging { cursor: grabbing; }
 
 .sp-rule {
   position: absolute;
@@ -326,6 +338,7 @@
 }
 
 .sp-settings-actions { margin-top: 12px; text-align: right; }
+.sp-settings-actions .sp-button + .sp-button { margin-left: 8px; }
 
 .sp-settings-error { margin: 8px 0 0; }
 

@@ -1,4 +1,4 @@
-import type { Settings, TimingFactors } from './types.js';
+import type { ReaderPosition, Settings, TimingFactors } from './types.js';
 
 export type StillpointMessage =
   | { kind: 'open' }
@@ -30,6 +30,13 @@ function isFactors(value: unknown): value is TimingFactors {
     && isPositiveNumber(factors.paraStart);
 }
 
+function isPosition(value: unknown): value is ReaderPosition {
+  const position = record(value);
+  return position !== undefined
+    && isFiniteNumber(position.x)
+    && isFiniteNumber(position.y);
+}
+
 function isSettings(value: unknown): value is Settings {
   const settings = record(value);
   return settings !== undefined
@@ -43,6 +50,7 @@ function isSettings(value: unknown): value is Settings {
     && Number.isInteger(settings.maxWordLen)
     && settings.maxWordLen >= 2
     && isFactors(settings.factors)
+    && (settings.position === null || isPosition(settings.position))
     && typeof settings.autoRewindOnResume === 'boolean'
     && typeof settings.hideControlsWhilePlaying === 'boolean';
 }

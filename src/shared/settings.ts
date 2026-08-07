@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type Settings, type TimingFactors } from './types.js';
+import { DEFAULT_SETTINGS, type ReaderPosition, type Settings, type TimingFactors } from './types.js';
 
 const STORAGE_KEY = 'settings';
 const FONT_SIZES: readonly Settings['fontSize'][] = [20, 28, 36, 48];
@@ -56,6 +56,15 @@ function timingFactors(value: unknown): TimingFactors {
   };
 }
 
+function position(value: unknown): ReaderPosition | null {
+  const raw = record(value);
+  if (raw === undefined) return DEFAULT_SETTINGS.position;
+  const x = finiteNumber(raw.x, Number.NaN);
+  const y = finiteNumber(raw.y, Number.NaN);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return DEFAULT_SETTINGS.position;
+  return { x: clamp(x, 0, 100), y: clamp(y, 0, 100) };
+}
+
 // SPEC §5.3
 export function migrate(value: unknown): Settings {
   const raw = record(value) ?? {};
@@ -71,6 +80,7 @@ export function migrate(value: unknown): Settings {
     theme,
     maxWordLen: rawMaxWordLen >= 2 ? Math.trunc(rawMaxWordLen) : DEFAULT_SETTINGS.maxWordLen,
     factors: timingFactors(raw.factors),
+    position: position(raw.position),
     autoRewindOnResume: booleanValue(raw.autoRewindOnResume, DEFAULT_SETTINGS.autoRewindOnResume),
     hideControlsWhilePlaying: booleanValue(
       raw.hideControlsWhilePlaying,

@@ -1,6 +1,6 @@
 import type { Settings } from '../../shared/types.js';
 
-export type ReaderSettingsPatch = Partial<Pick<Settings, 'wpm' | 'theme' | 'fontSize'>>;
+export type ReaderSettingsPatch = Partial<Pick<Settings, 'wpm' | 'theme' | 'fontSize' | 'position'>>;
 
 export interface SettingsPanelActions {
   load: () => Promise<Settings>;
@@ -73,9 +73,15 @@ export class SettingsPanel {
     close.textContent = 'Done';
     close.addEventListener('click', () => this.close());
 
+    const resetPosition = documentRoot.createElement('button');
+    resetPosition.type = 'button';
+    resetPosition.className = 'sp-button';
+    resetPosition.textContent = 'Reset position';
+    resetPosition.addEventListener('click', () => void this.#save({ position: null }));
+
     const footer = documentRoot.createElement('div');
     footer.className = 'sp-settings-actions';
-    footer.append(close);
+    footer.append(resetPosition, close);
     this.element.append(title, fields, this.#error, footer);
     this.render(settings);
 

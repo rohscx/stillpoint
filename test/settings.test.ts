@@ -9,6 +9,9 @@ function expectValid(settings: Settings): void {
   expect([20, 28, 36, 48]).toContain(settings.fontSize);
   expect(['auto', 'light', 'dark']).toContain(settings.theme);
   expect(Number.isFinite(settings.maxWordLen)).toBe(true);
+  expect(settings.position === null || (
+    Number.isFinite(settings.position.x) && Number.isFinite(settings.position.y)
+  )).toBe(true);
   for (const factor of Object.values(settings.factors)) expect(Number.isFinite(factor)).toBe(true);
   expect(typeof settings.autoRewindOnResume).toBe('boolean');
   expect(typeof settings.hideControlsWhilePlaying).toBe('boolean');
@@ -27,6 +30,20 @@ describe('migrate', () => {
     expect(settings.wpm).toBe(425);
     expect(settings.theme).toBe('dark');
     expect(settings.factors).toEqual(DEFAULT_SETTINGS.factors);
+  });
+
+  it('defaults a v1.0 settings object without position to null', () => {
+    const settings = migrate({
+      version: 1,
+      wpm: 425,
+      fontSize: 36,
+      theme: 'auto',
+      maxWordLen: 13,
+      factors: DEFAULT_SETTINGS.factors,
+      autoRewindOnResume: true,
+      hideControlsWhilePlaying: true,
+    });
+    expect(settings.position).toBeNull();
   });
 
   it('sanitizes an unknown future version', () => {
@@ -67,8 +84,19 @@ describe('settings storage', () => {
       set: async (items) => { stored = items; },
     };
 
-    const saved = await saveSettings({ ...DEFAULT_SETTINGS, wpm: 615, theme: 'dark', fontSize: 48 }, storage);
-    expect(saved).toMatchObject({ wpm: 615, theme: 'dark', fontSize: 48 });
+    const saved = await saveSettings({
+      ...DEFAULT_SETTINGS,
+      wpm: 615,
+      theme: 'dark',
+      fontSize: 48,
+      position: { x: 72.5, y: 24 },
+    }, storage);
+    expect(saved).toMatchObject({
+      wpm: 615,
+      theme: 'dark',
+      fontSize: 48,
+      position: { x: 72.5, y: 24 },
+    });
     await expect(loadSettings(storage)).resolves.toEqual(saved);
   });
 });

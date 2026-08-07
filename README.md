@@ -17,6 +17,9 @@ Open Stillpoint by clicking its toolbar icon or pressing `Alt+S` (`Cmd+Shift+S` 
 
 While the reader is open:
 
+Drag the Redicle frame to place the reading window anywhere in the viewport. Its position
+is saved across reader sessions; use **Reset position** in settings to return to the default.
+
 | Key | Action |
 |---|---|
 | `Space` | Play or pause |
@@ -28,6 +31,8 @@ While the reader is open:
 | `R` | Rewind to the current sentence and resume |
 | `Esc` | Close the reader; closes settings first when settings are open |
 | `1`–`4` | Font size S, M, L, or XL |
+| `Alt+←` / `Alt+→` / `Alt+↑` / `Alt+↓` | Move the Redicle by 2% of the viewport |
+| `Alt+0` | Reset the Redicle position |
 
 If a page has no extractable article text, Stillpoint offers a paste field instead.
 

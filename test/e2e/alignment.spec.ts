@@ -71,6 +71,24 @@ test('ORP glyph remains centred on the hash for lengths 1 through 20', async ({ 
   }
 });
 
+test('ORP alignment survives a non-default Redicle position', async ({ page }: { page: Page }) => {
+  await page.keyboard.press('Alt+ArrowRight');
+  await page.keyboard.press('Alt+ArrowDown');
+  const centers = await page.evaluate(() => {
+    const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
+    const orp = root.querySelector('.sp-orp')?.getBoundingClientRect();
+    const hash = root.querySelector('.sp-hash-top')?.getBoundingClientRect();
+    if (orp === undefined || hash === undefined) return undefined;
+    return {
+      orp: orp.x + orp.width / 2,
+      hash: hash.x + hash.width / 2,
+    };
+  });
+  expect(centers).toBeDefined();
+  if (centers === undefined) return;
+  expect(Math.abs(centers.orp - centers.hash)).toBeLessThanOrEqual(0.5);
+});
+
 test('all keyboard bindings perform their specified actions', async ({ page }: { page: Page }) => {
   const playLabel = async (): Promise<string | null> => page.evaluate(() => {
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;

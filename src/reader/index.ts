@@ -3,6 +3,7 @@ import { mergeSettings } from './engine/timing.js';
 import { tokenize, unsupportedScript } from './engine/tokenize.js';
 import { acquireText } from './extract/index.js';
 import { Controls } from './ui/controls.js';
+import { Drag } from './ui/drag.js';
 import { ErrorPanel } from './ui/error.js';
 import { Keyboard } from './ui/keyboard.js';
 import { Overlay } from './ui/overlay.js';
@@ -74,6 +75,7 @@ function mountReaderInOverlay(
 
   let closed = false;
   let keyboard: Keyboard | undefined;
+  let drag: Drag | undefined;
   let settingsPanel: SettingsPanel | undefined;
   const unsubscribers: Array<() => void> = [];
 
@@ -105,6 +107,7 @@ function mountReaderInOverlay(
     scheduler.setWpm(next.wpm);
     overlay.setTheme(next.theme);
     overlay.setFontSize(next.fontSize);
+    drag?.setPosition(next.position);
     settingsPanel?.render(next);
     renderIndex(scheduler.index);
   };
@@ -126,6 +129,7 @@ function mountReaderInOverlay(
     scheduler.pause();
     for (const unsubscribe of unsubscribers) unsubscribe();
     keyboard?.destroy();
+    drag?.destroy();
     settingsPanel?.close();
     controls.destroy();
     overlay.close();
@@ -160,7 +164,17 @@ function mountReaderInOverlay(
     save: (patch: ReaderSettingsPatch) => saveSettings({ ...settings, ...patch }),
     apply: applySettings,
   });
-  overlay.elements.reader.append(redicle.element, controls.progressElement, controls.element, settingsPanel.element);
+  const chrome = document.createElement('div');
+  chrome.className = 'sp-reader-chrome';
+  chrome.append(controls.progressElement, controls.element, settingsPanel.element);
+  overlay.elements.reader.append(redicle.element, chrome);
+  drag = new Drag(redicle.element, overlay.elements.reader, settings.position, {
+    commit: (position) => {
+      settings = { ...settings, position };
+      settingsPanel?.render(settings);
+      persistSettings();
+    },
+  });
   overlay.elements.reader.addEventListener('pointermove', () => controls.noteActivity());
 
   unsubscribers.push(
@@ -190,6 +204,8 @@ function mountReaderInOverlay(
       scheduler.play();
       controls.setPlaying(scheduler.isPlaying);
     },
+    nudgePosition: (xDirection, yDirection) => drag?.nudge(xDirection, yDirection),
+    resetPosition: () => drag?.reset(),
     closePanel: () => {
       if (settingsPanel?.isOpen !== true) return false;
       settingsPanel.close();
@@ -199,6 +215,7 @@ function mountReaderInOverlay(
     setFontSize: (fontSize) => {
       settings = { ...settings, fontSize };
       overlay.setFontSize(fontSize);
+      drag?.reclamp(true);
       settingsPanel?.render(settings);
       persistSettings();
     },

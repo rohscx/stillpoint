@@ -6,6 +6,8 @@ export interface KeyboardActions {
   seekParagraph: (offset: number) => void;
   restart: () => void;
   rewindSentenceAndResume: () => void;
+  nudgePosition: (xDirection: -1 | 0 | 1, yDirection: -1 | 0 | 1) => void;
+  resetPosition: () => void;
   closePanel: () => boolean;
   close: () => void;
   setFontSize: (fontSize: 20 | 28 | 36 | 48) => void;
@@ -55,13 +57,18 @@ export class Keyboard {
   }
 
   #dispatch(event: KeyboardEvent): boolean {
-    // SPEC §5.2
+    // SPEC §§3.6, 5.2
     if (
       event.repeat
       && (event.key === ' ' || event.key === 'Home' || event.key === 'Escape'
         || event.key.toLocaleLowerCase() === 'r' || /^[1-4]$/u.test(event.key))
     ) return true;
-    if (event.key === ' ' && !event.repeat) this.#actions.togglePlaying();
+    if (event.altKey && event.key === 'ArrowLeft') this.#actions.nudgePosition(-1, 0);
+    else if (event.altKey && event.key === 'ArrowRight') this.#actions.nudgePosition(1, 0);
+    else if (event.altKey && event.key === 'ArrowUp') this.#actions.nudgePosition(0, -1);
+    else if (event.altKey && event.key === 'ArrowDown') this.#actions.nudgePosition(0, 1);
+    else if (event.altKey && event.key === '0' && !event.repeat) this.#actions.resetPosition();
+    else if (event.key === ' ' && !event.repeat) this.#actions.togglePlaying();
     else if (event.key === 'ArrowLeft' && event.shiftKey) this.#actions.seekSentence(-1);
     else if (event.key === 'ArrowRight' && event.shiftKey) this.#actions.seekSentence(1);
     else if (event.key === 'ArrowLeft') this.#actions.seekWord(-1);

@@ -16,6 +16,11 @@ export interface TimingFactors {
   paraStart: number;
 }
 
+export interface ReaderPosition {
+  x: number;
+  y: number;
+}
+
 export interface Settings {
   version: 1;
   wpm: number;
@@ -23,6 +28,7 @@ export interface Settings {
   theme: 'auto' | 'light' | 'dark';
   maxWordLen: number;
   factors: TimingFactors;
+  position: ReaderPosition | null;
   autoRewindOnResume: boolean;
   hideControlsWhilePlaying: boolean;
 }
@@ -52,6 +58,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     numeric: 1.4,
     paraStart: 1.2,
   },
+  position: null,
   autoRewindOnResume: true,
   hideControlsWhilePlaying: true,
 };

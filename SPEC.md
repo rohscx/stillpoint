@@ -3,7 +3,8 @@
 A Chromium browser extension that reproduces the reading experience of the defunct
 **Spritz** reader (RSVP + ORP "Redicle") on any web page.
 
-Status: design spec, pre-implementation. This document is the contract for the build.
+Status: v1.0 shipped (M1-M6). This document is the contract for the build and is updated
+as decisions are made or proven wrong; see the notes marked in §2.4, §3.3, §4 and §5.1.
 
 ---
 
@@ -307,6 +308,40 @@ close, preserving `scrollY`).
 
 ---
 
+### 3.6 Repositioning the Redicle
+
+The default position (§3.1: horizontally centred, 38% from the top) suits a conventional
+viewport. It does not suit every display or window shape — a tall narrow window, an
+ultrawide, or a browser sized to occupy part of a screen all want the reading window
+somewhere else. The user may therefore move it.
+
+- **Drag target.** The Redicle frame itself. It has no other interaction, so no separate
+  handle is needed. `cursor: grab`, `grabbing` while dragging. Use pointer events with
+  `setPointerCapture`; do not use mouse events. Dragging must not begin on the controls.
+- **Stored as viewport percentages**, never pixels, so a position survives a window
+  resize and moving between displays of different sizes.
+- **Always fully on screen — the whole reader, not just the frame.** The controls hang
+  *below* the Redicle (`.sp-reader-chrome`, `top: 100%`), so the reader's vertical extent
+  is asymmetric: half the frame above the position, half the frame **plus the control
+  cluster** below it. Clamping on the frame alone pushes the transport, progress and
+  status off the bottom of the viewport where they cannot be reached. Clamp during the
+  drag and re-clamp on `resize` and `orientationchange`. Where a viewport is too short to
+  hold both, keep the frame on screen and let the controls overflow — never invert the
+  clamp.
+- **Snap.** Within 2% of the default position, snap back to it exactly, so returning to
+  default is easy by hand. No other snap targets.
+- **Keyboard.** `Alt` + arrow keys nudge by 2% per press. Plain and `Shift` + arrows are
+  taken (§5.2), and a drag-only feature is not reachable without a pointer.
+- **Reset.** A "Reset position" control in the settings panel (§3.4), and `Alt+0`.
+- **No animation.** The frame follows the pointer directly and snaps instantly. §3.4's
+  prohibition on animation inside the Redicle still applies.
+
+Dragging moves the frame as a unit, so the ORP column stays fixed relative to the hash
+marks and the §3.1 alignment mechanism is unaffected. The alignment test must continue to
+pass at a non-default position — add a case that proves it.
+
+---
+
 ## 4. Text acquisition
 
 Resolution order when the reader is invoked:
@@ -400,6 +435,7 @@ interface Settings {
     sentence: number; clause: number; paragraph: number;
     longWord: number; numeric: number; paraStart: number;
   };
+  position: { x: number; y: number } | null; // §3.6, viewport %; null = default
   autoRewindOnResume: boolean;  // default true
   hideControlsWhilePlaying: boolean; // default true
 }
