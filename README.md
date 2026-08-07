@@ -43,6 +43,14 @@ Stillpoint makes no network requests at runtime and uses no telemetry or account
 
 Settings are stored with `chrome.storage.sync`, which is provided by the browser. The extension itself does not send page text or reading activity to any service.
 
+## Licence
+
+Licensed under the [Apache License, Version 2.0](LICENSE). Copyright 2026 rohscx.
+
+Stillpoint bundles [@mozilla/readability](https://github.com/mozilla/readability), also Apache-2.0; see [NOTICE](NOTICE) for attribution. Both files ship inside `dist/`, so an unpacked or packed build carries its own licence terms.
+
+Stillpoint is an independent reimplementation of a reading technique popularised by Spritz Inc. It is not affiliated with, endorsed by, or derived from any Spritz Inc. source code.
+
 ## Development
 
 - `npm run typecheck` checks strict TypeScript types.

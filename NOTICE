@@ -1,0 +1,17 @@
+Stillpoint
+Copyright 2026 rohscx
+
+This product includes software developed at Mozilla.
+
+  @mozilla/readability
+  Copyright (c) 2010 Arc90 Inc, and contributors
+  Licensed under the Apache License, Version 2.0
+  https://github.com/mozilla/readability
+
+The Readability library is bundled into dist/extract.js. A copy of the
+Apache License, Version 2.0 is distributed with this product in LICENSE.
+
+Stillpoint is an independent reimplementation of a reading technique
+popularised by Spritz Inc. It is not affiliated with, endorsed by, or
+derived from any Spritz Inc. source code. "Spritz" is referenced only to
+describe what this software does.
