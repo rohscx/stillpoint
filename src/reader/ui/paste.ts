@@ -1,10 +1,30 @@
+export interface PastePanelMessage {
+  title: string;
+  body: string;
+}
+
 export class PastePanel {
   readonly element: HTMLFormElement;
   readonly textarea: HTMLTextAreaElement;
+  readonly #title: HTMLHeadingElement;
+  readonly #message: HTMLParagraphElement;
 
-  constructor(documentRoot: Document, onSubmit: (text: string) => void, onClose: () => void) {
+  constructor(
+    documentRoot: Document,
+    onSubmit: (text: string) => void,
+    onClose: () => void,
+    message?: PastePanelMessage,
+  ) {
     this.element = documentRoot.createElement('form');
     this.element.className = 'sp-paste';
+
+    this.#title = documentRoot.createElement('h2');
+    this.#title.className = 'sp-panel-title';
+    this.#title.hidden = true;
+    this.#message = documentRoot.createElement('p');
+    this.#message.className = 'sp-panel-message';
+    this.#message.hidden = true;
+    if (message !== undefined) this.setMessage(message);
 
     this.textarea = documentRoot.createElement('textarea');
     this.textarea.className = 'sp-paste-textarea';
@@ -24,7 +44,7 @@ export class PastePanel {
     close.textContent = 'Close';
     close.addEventListener('click', onClose);
     actions.append(submit, close);
-    this.element.append(this.textarea, actions);
+    this.element.append(this.#title, this.#message, this.textarea, actions);
 
     this.element.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -33,4 +53,10 @@ export class PastePanel {
     });
   }
 
+  setMessage(message: PastePanelMessage): void {
+    this.#title.textContent = message.title;
+    this.#message.textContent = message.body;
+    this.#title.hidden = false;
+    this.#message.hidden = false;
+  }
 }

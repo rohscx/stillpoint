@@ -1,14 +1,16 @@
 import { Scheduler } from './engine/scheduler.js';
 import { mergeSettings } from './engine/timing.js';
-import { tokenize } from './engine/tokenize.js';
+import { tokenize, unsupportedScript } from './engine/tokenize.js';
 import { acquireText } from './extract/index.js';
 import { Controls } from './ui/controls.js';
+import { ErrorPanel } from './ui/error.js';
 import { Keyboard } from './ui/keyboard.js';
 import { Overlay } from './ui/overlay.js';
-import { PastePanel } from './ui/paste.js';
+import { PastePanel, type PastePanelMessage } from './ui/paste.js';
 import { Redicle } from './ui/redicle.js';
+import { SettingsPanel, type ReaderSettingsPatch } from './ui/settings.js';
 import { isStillpointMessage } from '../shared/messages.js';
-import { loadSettings, migrate } from '../shared/settings.js';
+import { loadSettings, migrate, saveSettings, settingsStorageAvailable } from '../shared/settings.js';
 import type { Settings, SettingsOverrides, Token } from '../shared/types.js';
 
 export { acquireText } from './extract/index.js';
@@ -40,6 +42,10 @@ export interface ReaderHandle {
   setTheme: (theme: 'auto' | 'light' | 'dark') => void;
 }
 
+export interface ReaderInstrumentation {
+  onRender: (durationMs: number) => void;
+}
+
 function injectionRuntime(): InjectionRuntime {
   return globalThis as typeof globalThis & InjectionRuntime;
 }
@@ -54,7 +60,13 @@ function currentToken(tokens: readonly Token[], index: number): Token | undefine
   return tokens[Math.min(Math.max(index, 0), Math.max(0, tokens.length - 1))];
 }
 
-function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay): ReaderHandle {
+function mountReaderInOverlay(
+  text: string,
+  initialSettings: Settings,
+  overlay: Overlay,
+  instrumentation?: ReaderInstrumentation,
+): ReaderHandle {
+  let settings = initialSettings;
   const tokens = tokenize(text, { maxWordLen: settings.maxWordLen, factors: settings.factors });
   const scheduler = new Scheduler(tokens, { settings });
   const redicle = new Redicle(document);
@@ -62,12 +74,15 @@ function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay
 
   let closed = false;
   let keyboard: Keyboard | undefined;
+  let settingsPanel: SettingsPanel | undefined;
   const unsubscribers: Array<() => void> = [];
 
   const renderIndex = (index: number): void => {
+    const started = instrumentation === undefined ? 0 : performance.now();
     const token = currentToken(tokens, index);
     if (token !== undefined) redicle.render(token);
     controls.update(index, scheduler.wpm);
+    if (instrumentation !== undefined) instrumentation.onRender(performance.now() - started);
   };
 
   const seekWord = (offset: number): void => {
@@ -85,9 +100,25 @@ function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay
     controls.setPlaying(false);
     renderIndex(scheduler.index);
   };
+  const applySettings = (next: Settings): void => {
+    settings = next;
+    scheduler.setWpm(next.wpm);
+    overlay.setTheme(next.theme);
+    overlay.setFontSize(next.fontSize);
+    settingsPanel?.render(next);
+    renderIndex(scheduler.index);
+  };
+  const persistSettings = (): void => {
+    if (!settingsStorageAvailable()) return;
+    void saveSettings(settings).catch((error: unknown) => {
+      console.error('[Stillpoint] Reader settings storage failed', error);
+    });
+  };
   const setWpm = (wpm: number): void => {
     scheduler.setWpm(wpm);
+    settings = { ...settings, wpm: scheduler.wpm };
     renderIndex(scheduler.index);
+    persistSettings();
   };
   const close = (): void => {
     if (closed) return;
@@ -95,13 +126,17 @@ function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay
     scheduler.pause();
     for (const unsubscribe of unsubscribers) unsubscribe();
     keyboard?.destroy();
+    settingsPanel?.close();
     controls.destroy();
     overlay.close();
     clearInjectionState();
   };
   const togglePlaying = (): void => {
     if (scheduler.isPlaying) scheduler.pause();
-    else scheduler.play();
+    else {
+      controls.setStalledPause(false);
+      scheduler.play();
+    }
     controls.setPlaying(scheduler.isPlaying);
   };
 
@@ -112,15 +147,28 @@ function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay
     nextWord: () => seekWord(1),
     nextParagraph: () => seekParagraph(1),
     setWpm,
-    openSettings: () => controls.element.focus(),
+    openSettings: () => {
+      scheduler.pause();
+      controls.setPlaying(false);
+      const active = overlay.elements.shadowRoot.activeElement;
+      settingsPanel?.open(active instanceof HTMLElement ? active : undefined);
+    },
     close,
   });
-  overlay.elements.reader.append(redicle.element, controls.progressElement, controls.element);
+  settingsPanel = new SettingsPanel(document, settings, {
+    load: () => loadSettings(),
+    save: (patch: ReaderSettingsPatch) => saveSettings({ ...settings, ...patch }),
+    apply: applySettings,
+  });
+  overlay.elements.reader.append(redicle.element, controls.progressElement, controls.element, settingsPanel.element);
   overlay.elements.reader.addEventListener('pointermove', () => controls.noteActivity());
 
   unsubscribers.push(
     scheduler.on('tick', (_token, index) => renderIndex(index)),
-    scheduler.on('paused', () => controls.setPlaying(false)),
+    scheduler.on('paused', (reason) => {
+      controls.setPlaying(false);
+      if (reason === 'stalled') controls.setStalledPause(true);
+    }),
     scheduler.on('finished', () => controls.setPlaying(false)),
   );
 
@@ -138,11 +186,22 @@ function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay
     rewindSentenceAndResume: () => {
       scheduler.rewindSentence();
       renderIndex(scheduler.index);
+      controls.setStalledPause(false);
       scheduler.play();
       controls.setPlaying(scheduler.isPlaying);
     },
+    closePanel: () => {
+      if (settingsPanel?.isOpen !== true) return false;
+      settingsPanel.close();
+      return true;
+    },
     close,
-    setFontSize: (fontSize) => overlay.setFontSize(fontSize),
+    setFontSize: (fontSize) => {
+      settings = { ...settings, fontSize };
+      overlay.setFontSize(fontSize);
+      settingsPanel?.render(settings);
+      persistSettings();
+    },
   });
 
   renderIndex(0);
@@ -151,20 +210,71 @@ function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay
 
   return {
     close,
-    setWpm,
+    setWpm: (wpm) => applySettings({ ...settings, wpm }),
+    setFontSize: (fontSize) => applySettings({ ...settings, fontSize }),
+    setTheme: (theme) => applySettings({ ...settings, theme }),
+  };
+}
+
+function mountError(
+  settings: Settings,
+  context: string,
+  error: unknown,
+  previousOverlay?: Overlay,
+): ReaderHandle {
+  console.error(`[Stillpoint] ${context}`, error);
+  previousOverlay?.close();
+  const overlay = new Overlay(settings.theme, settings.fontSize);
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    overlay.close();
+    clearInjectionState();
+  };
+  const panel = new ErrorPanel(document, close);
+  overlay.elements.reader.append(panel.element);
+  overlay.focus();
+  return {
+    close,
+    setWpm: () => undefined,
     setFontSize: (fontSize) => overlay.setFontSize(fontSize),
     setTheme: (theme) => overlay.setTheme(theme),
   };
 }
 
-export function mountReader(text: string, overrides: SettingsOverrides = {}): ReaderHandle {
+export function mountReader(
+  text: string,
+  overrides: SettingsOverrides = {},
+  instrumentation?: ReaderInstrumentation,
+): ReaderHandle {
   const settings = mergeSettings(overrides);
-  const overlay = new Overlay(settings.theme, settings.fontSize);
-  return mountReaderInOverlay(text, settings, overlay);
+  let overlay: Overlay | undefined;
+  try {
+    overlay = new Overlay(settings.theme, settings.fontSize);
+    return mountReaderInOverlay(text, settings, overlay, instrumentation);
+  } catch (error) {
+    return mountError(settings, 'Reader mounting failed', error, overlay);
+  }
 }
 
-function mountPasteFallback(settings: Settings): ReaderHandle {
-  const overlay = new Overlay(settings.theme, settings.fontSize);
+function scriptMessage(script: 'cjk' | 'rtl'): PastePanelMessage {
+  return script === 'cjk'
+    ? {
+      title: 'CJK text is not supported yet',
+      body: 'Support is planned. Paste different text below to keep reading.',
+    }
+    : {
+      title: 'Right-to-left text is not supported yet',
+      body: 'Arabic and Hebrew support is planned. Paste different text below to keep reading.',
+    };
+}
+
+function mountPasteFallback(
+  settings: Settings,
+  overlay: Overlay,
+  message?: PastePanelMessage,
+): ReaderHandle {
   let reader: ReaderHandle | undefined;
   let closed = false;
   const close = (): void => {
@@ -178,9 +288,19 @@ function mountPasteFallback(settings: Settings): ReaderHandle {
   };
   const panel = new PastePanel(document, (text) => {
     if (closed) return;
+    const script = unsupportedScript(text);
+    if (script !== undefined) {
+      panel.setMessage(scriptMessage(script));
+      panel.textarea.focus();
+      return;
+    }
     panel.element.remove();
-    reader = mountReaderInOverlay(text, settings, overlay);
-  }, close);
+    try {
+      reader = mountReaderInOverlay(text, settings, overlay);
+    } catch (error) {
+      reader = mountError(settings, 'Reader mounting failed', error, overlay);
+    }
+  }, close, message);
   overlay.elements.reader.append(panel.element);
   panel.textarea.focus();
 
@@ -193,10 +313,22 @@ function mountPasteFallback(settings: Settings): ReaderHandle {
 }
 
 async function acquireAndMount(settings: Settings): Promise<ReaderHandle> {
-  const acquisition = await acquireText();
-  return acquisition.source === 'paste'
-    ? mountPasteFallback(settings)
-    : mountReaderInOverlay(acquisition.text, settings, new Overlay(settings.theme, settings.fontSize));
+  let acquisition: Awaited<ReturnType<typeof acquireText>>;
+  try {
+    acquisition = await acquireText();
+  } catch (error) {
+    return mountError(settings, 'Text acquisition failed', error);
+  }
+  let overlay: Overlay | undefined;
+  try {
+    overlay = new Overlay(settings.theme, settings.fontSize);
+    if (acquisition.source === 'paste') return mountPasteFallback(settings, overlay);
+    const script = unsupportedScript(acquisition.text);
+    if (script !== undefined) return mountPasteFallback(settings, overlay, scriptMessage(script));
+    return mountReaderInOverlay(acquisition.text, settings, overlay);
+  } catch (error) {
+    return mountError(settings, 'Reader mounting failed', error, overlay);
+  }
 }
 
 export async function mountAcquiredReader(overrides: SettingsOverrides = {}): Promise<ReaderHandle> {

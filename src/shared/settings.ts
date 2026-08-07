@@ -85,6 +85,10 @@ function syncStorage(): SettingsStorageArea {
   return area;
 }
 
+export function settingsStorageAvailable(): boolean {
+  return (globalThis as ChromeStorageGlobal).chrome?.storage?.sync !== undefined;
+}
+
 export async function loadSettings(storage: SettingsStorageArea = syncStorage()): Promise<Settings> {
   const stored = await storage.get(STORAGE_KEY);
   return migrate(stored[STORAGE_KEY]);

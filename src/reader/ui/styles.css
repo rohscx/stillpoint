@@ -264,3 +264,74 @@
 }
 
 .sp-paste-actions .sp-button { margin-left: 8px; }
+
+.sp-panel-title,
+.sp-panel-message {
+  margin: 0;
+}
+
+.sp-panel-title {
+  color: var(--sp-fg);
+  font: 600 16px/1.4 sans-serif;
+}
+
+.sp-panel-message {
+  color: var(--sp-ui);
+  font: 14px/1.5 sans-serif;
+}
+
+.sp-settings,
+.sp-error {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  color: var(--sp-ui);
+  background: var(--sp-bg);
+  font: 13px/1.4 sans-serif;
+}
+
+.sp-settings[hidden] { display: none; }
+
+.sp-settings-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sp-settings-fields label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.sp-settings-fields input,
+.sp-settings-fields select {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  color: var(--sp-fg);
+  background: var(--sp-bg);
+  font: inherit;
+}
+
+.sp-settings-fields input:focus-visible,
+.sp-settings-fields select:focus-visible {
+  outline: 2px solid var(--sp-orp);
+  outline-offset: 2px;
+}
+
+.sp-settings-actions { margin-top: 12px; text-align: right; }
+
+.sp-settings-error { margin: 8px 0 0; }
+
+.sp-error {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.sp-error .sp-button { justify-self: end; }

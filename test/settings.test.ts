@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { migrate } from '../src/shared/settings.js';
+import { loadSettings, migrate, saveSettings, type SettingsStorageArea } from '../src/shared/settings.js';
 import { DEFAULT_SETTINGS, type Settings } from '../src/shared/types.js';
 
 function expectValid(settings: Settings): void {
@@ -56,5 +56,19 @@ describe('migrate', () => {
     expect(migrate({ fontSize: 21 }).fontSize).toBe(20);
     expect(migrate({ fontSize: 31 }).fontSize).toBe(28);
     expect(migrate({ fontSize: 100 }).fontSize).toBe(48);
+  });
+});
+
+describe('settings storage', () => {
+  it('round-trips the reader-facing fields through the shared settings object', async () => {
+    let stored: Record<string, unknown> = {};
+    const storage: SettingsStorageArea = {
+      get: async () => stored,
+      set: async (items) => { stored = items; },
+    };
+
+    const saved = await saveSettings({ ...DEFAULT_SETTINGS, wpm: 615, theme: 'dark', fontSize: 48 }, storage);
+    expect(saved).toMatchObject({ wpm: 615, theme: 'dark', fontSize: 48 });
+    await expect(loadSettings(storage)).resolves.toEqual(saved);
   });
 });

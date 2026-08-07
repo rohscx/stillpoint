@@ -24,6 +24,11 @@ export function detectScript(text: string): Script {
   return rtlCount / codepoints.length > 0.3 ? 'rtl' : 'latin';
 }
 
+export function unsupportedScript(text: string): Exclude<Script, 'latin'> | undefined {
+  const script = detectScript(text);
+  return script === 'latin' ? undefined : script;
+}
+
 function isPreferredBoundary(glyphs: readonly string[], position: number): boolean {
   const left = glyphs[position - 1];
   const right = glyphs[position];

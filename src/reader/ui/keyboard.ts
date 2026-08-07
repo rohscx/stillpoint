@@ -6,6 +6,7 @@ export interface KeyboardActions {
   seekParagraph: (offset: number) => void;
   restart: () => void;
   rewindSentenceAndResume: () => void;
+  closePanel: () => boolean;
   close: () => void;
   setFontSize: (fontSize: 20 | 28 | 36 | 48) => void;
 }
@@ -31,8 +32,22 @@ export class Keyboard {
   }
 
   #handle(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && !event.repeat && this.#actions.closePanel()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     // Text-entry controls must receive literal §5.2 keys while the paste/settings UI has focus.
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+    const fieldHasFocus = (
+      event.target instanceof HTMLInputElement
+      || event.target instanceof HTMLTextAreaElement
+      || event.target instanceof HTMLSelectElement
+      || (event.target instanceof HTMLElement && event.target.isContentEditable)
+    );
+    if (fieldHasFocus) {
+      event.stopPropagation();
+      return;
+    }
     const handled = this.#dispatch(event);
     if (!handled) return;
     event.preventDefault();

@@ -498,13 +498,12 @@ show a badge, don't fail silently.
 
 ## 9. Open decisions
 
-1. **CJK support in v1** (§2.5) — implement the 2-glyph chunker, or gate with a clear
-   message and defer? Recommend: gate in v1, implement in v1.1.
-2. **Readability vs. heuristic-only.** 30 KB lazy chunk buys markedly better extraction.
-   Recommend: ship Readability.
-3. **Bookmarklet build.** The same reader bundle can be shipped as a standalone
-   bookmarklet for browsers where the extension can't be installed. Cheap, but out of
-   scope for v1.
+1. **CJK support in v1** (§2.5) — decided: gate CJK and RTL text with a clear message in
+   v1; defer script-specific tokenisation and layout to a later release.
+2. **Readability vs. heuristic-only** — decided: Readability shipped as a lazy chunk in
+   M4, with the heuristic retained as its fallback.
+3. **Bookmarklet build** — decided: out of scope for v1. The option remains available for
+   a later release.
 
 ---
 

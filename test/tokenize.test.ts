@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { detectScript, tokenize } from '../src/reader/engine/tokenize.js';
+import { detectScript, tokenize, unsupportedScript } from '../src/reader/engine/tokenize.js';
 import { TOKENIZE_CASES } from './fixtures/tokenize-cases.js';
 
 describe('tokenize', () => {
@@ -46,6 +46,9 @@ describe('tokenize', () => {
     expect(detectScript('abc漢')).toBe('latin');
     expect(detectScript('ab漢字')).toBe('cjk');
     expect(detectScript('abאב')).toBe('rtl');
+    expect(unsupportedScript('Ordinary Latin text')).toBeUndefined();
+    expect(unsupportedScript('漢字仮名交じり文')).toBe('cjk');
+    expect(unsupportedScript('עברית היא שפה')).toBe('rtl');
     expect(tokenize('漢字仮名交じり文')).toHaveLength(1);
   });
 });

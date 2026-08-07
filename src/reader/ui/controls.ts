@@ -43,6 +43,7 @@ export class Controls {
   #pendingIndex = 0;
   #pendingWpm: number;
   #idleTimer: number | undefined;
+  #stalled = false;
 
   constructor(documentRoot: Document, tokens: readonly Token[], wpm: number, actions: ControlActions) {
     this.#tokens = tokens;
@@ -131,6 +132,13 @@ export class Controls {
     else this.#show();
   }
 
+  setStalledPause(stalled: boolean): void {
+    this.#stalled = stalled;
+    if (this.#pendingStatusTimer !== undefined) window.clearTimeout(this.#pendingStatusTimer);
+    this.#pendingStatusTimer = undefined;
+    this.#writeStatus(this.#pendingIndex, this.#pendingWpm, performance.now());
+  }
+
   noteActivity(): void {
     this.#show();
   }
@@ -145,7 +153,10 @@ export class Controls {
       .slice(Math.max(0, index + 1))
       .reduce((total, token) => total + tokenDurationMs(token, wpm), 0);
     const current = this.#tokens.length === 0 ? 0 : Math.min(index + 1, this.#tokens.length);
-    this.#status.textContent = `${wpm} WPM · ${current} / ${this.#tokens.length} words · ${remainingLabel(remaining)} left`;
+    const progress = `${wpm} WPM · ${current} / ${this.#tokens.length} words · ${remainingLabel(remaining)} left`;
+    this.#status.textContent = this.#stalled
+      ? `Paused: tab was backgrounded · ${progress}`
+      : progress;
     this.#lastStatusUpdate = now;
   }
 

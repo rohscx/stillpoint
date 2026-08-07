@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Stillpoint performance fixture</title>
+  </head>
+  <body>
+    <script>
+      const nativeAttachShadow = Element.prototype.attachShadow;
+      Element.prototype.attachShadow = function captureClosedRoot(options) {
+        const root = nativeAttachShadow.call(this, options);
+        window.__stillpointShadow = root;
+        return root;
+      };
+    </script>
+    <script type="module">
+      import { mountReader } from '/dist/reader.js';
+
+      const vocabulary = [
+        'stillpoint', 'reader', 'measures', 'each', 'render', 'without', 'geometry',
+        'queries', 'while', 'progress', 'moves', 'through', 'a', 'long', 'passage',
+      ];
+      const passage = Array.from({ length: 1_500 }, (_, index) => vocabulary[index % vocabulary.length]).join(' ');
+      window.__renderDurations = [];
+      window.__stillpointHandle = mountReader(passage, { wpm: 800 }, {
+        onRender(durationMs) { window.__renderDurations.push(durationMs); },
+      });
+    </script>
+  </body>
+</html>
