@@ -236,3 +236,31 @@
     opacity: 1;
   }
 }
+
+/* Paste fallback (SPEC §4). Kept separate from the Redicle rules above. */
+.sp-paste {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  background: var(--sp-bg);
+  font-size: 13px;
+}
+
+.sp-paste-textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 10px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  color: var(--sp-fg);
+  background: var(--sp-bg);
+  font: 14px/1.5 sans-serif;
+}
+
+.sp-paste-actions {
+  text-align: right;
+}
+
+.sp-paste-actions .sp-button { margin-left: 8px; }

@@ -8,7 +8,7 @@ export interface OverlayElements {
 }
 
 function focusableElements(root: ShadowRoot): HTMLElement[] {
-  const selector = 'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const selector = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   return Array.from(root.querySelectorAll<HTMLElement>(selector));
 }
 

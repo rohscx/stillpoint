@@ -31,6 +31,8 @@ export class Keyboard {
   }
 
   #handle(event: KeyboardEvent): void {
+    // Text-entry controls must receive literal §5.2 keys while the paste/settings UI has focus.
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
     const handled = this.#dispatch(event);
     if (!handled) return;
     event.preventDefault();

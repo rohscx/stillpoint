@@ -318,6 +318,14 @@ Resolution order when the reader is invoked:
 The extraction chunk must be a separate dynamic-import chunk so the ~30 KB is never paid
 by the selection path.
 
+**The exclusion list in step 3 applies to step 2 as well.** Strip `nav`, `header`,
+`footer`, `aside`, `[role=navigation|banner|complementary]` and `[aria-hidden=true]` from
+the cloned document *before* handing it to Readability, not just when running the
+heuristic. Readability keeps a bare `<div role="banner">` cookie notice, which the
+heuristic's block selector would never have matched — so filtering only in step 3 lets
+banner text through on exactly the pages Readability succeeds on. Never strip from the
+live document.
+
 Strip from the result: sequences of ≥3 identical punctuation, footnote markers matching
 `\[\d+\]`, image credits, and leading/trailing whitespace per paragraph.
 

@@ -28,6 +28,6 @@
     }
   },
   "web_accessible_resources": [
-    { "resources": ["reader.iife.js"], "matches": ["<all_urls>"] }
+    { "resources": ["reader.iife.js", "extract.js", "heuristic.js"], "matches": ["<all_urls>"] }
   ]
 }

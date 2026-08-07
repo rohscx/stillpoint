@@ -1,13 +1,17 @@
 import { Scheduler } from './engine/scheduler.js';
 import { mergeSettings } from './engine/timing.js';
 import { tokenize } from './engine/tokenize.js';
+import { acquireText } from './extract/index.js';
 import { Controls } from './ui/controls.js';
 import { Keyboard } from './ui/keyboard.js';
 import { Overlay } from './ui/overlay.js';
+import { PastePanel } from './ui/paste.js';
 import { Redicle } from './ui/redicle.js';
 import { isStillpointMessage } from '../shared/messages.js';
 import { loadSettings, migrate } from '../shared/settings.js';
-import type { SettingsOverrides, Token } from '../shared/types.js';
+import type { Settings, SettingsOverrides, Token } from '../shared/types.js';
+
+export { acquireText } from './extract/index.js';
 
 declare const __STILLPOINT_INJECTED__: boolean;
 
@@ -50,11 +54,9 @@ function currentToken(tokens: readonly Token[], index: number): Token | undefine
   return tokens[Math.min(Math.max(index, 0), Math.max(0, tokens.length - 1))];
 }
 
-export function mountReader(text: string, overrides: SettingsOverrides = {}): ReaderHandle {
-  const settings = mergeSettings(overrides);
+function mountReaderInOverlay(text: string, settings: Settings, overlay: Overlay): ReaderHandle {
   const tokens = tokenize(text, { maxWordLen: settings.maxWordLen, factors: settings.factors });
   const scheduler = new Scheduler(tokens, { settings });
-  const overlay = new Overlay(settings.theme, settings.fontSize);
   const redicle = new Redicle(document);
   overlay.elements.fullText.textContent = text;
 
@@ -155,6 +157,52 @@ export function mountReader(text: string, overrides: SettingsOverrides = {}): Re
   };
 }
 
+export function mountReader(text: string, overrides: SettingsOverrides = {}): ReaderHandle {
+  const settings = mergeSettings(overrides);
+  const overlay = new Overlay(settings.theme, settings.fontSize);
+  return mountReaderInOverlay(text, settings, overlay);
+}
+
+function mountPasteFallback(settings: Settings): ReaderHandle {
+  const overlay = new Overlay(settings.theme, settings.fontSize);
+  let reader: ReaderHandle | undefined;
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    if (reader !== undefined) reader.close();
+    else {
+      overlay.close();
+      clearInjectionState();
+    }
+  };
+  const panel = new PastePanel(document, (text) => {
+    if (closed) return;
+    panel.element.remove();
+    reader = mountReaderInOverlay(text, settings, overlay);
+  }, close);
+  overlay.elements.reader.append(panel.element);
+  panel.textarea.focus();
+
+  return {
+    close,
+    setWpm: (wpm) => reader?.setWpm(wpm),
+    setFontSize: (fontSize) => overlay.setFontSize(fontSize),
+    setTheme: (theme) => overlay.setTheme(theme),
+  };
+}
+
+async function acquireAndMount(settings: Settings): Promise<ReaderHandle> {
+  const acquisition = await acquireText();
+  return acquisition.source === 'paste'
+    ? mountPasteFallback(settings)
+    : mountReaderInOverlay(acquisition.text, settings, new Overlay(settings.theme, settings.fontSize));
+}
+
+export async function mountAcquiredReader(overrides: SettingsOverrides = {}): Promise<ReaderHandle> {
+  return acquireAndMount(mergeSettings(overrides));
+}
+
 async function runInjectedEntry(): Promise<void> {
   const runtime = injectionRuntime();
   const previous = runtime[INJECTION_PROPERTY];
@@ -174,11 +222,11 @@ async function runInjectedEntry(): Promise<void> {
 
   const settings = await loadSettings().catch(() => migrate(undefined));
   if (state.cancelled || runtime[INJECTION_PROPERTY] !== state) return;
-  const selection = window.getSelection()?.toString().trim() ?? '';
-  const text = selection === ''
-    ? 'Full-page extraction arrives in Stillpoint milestone M4.'
-    : selection;
-  const handle = mountReader(text, settings);
+  const handle = await acquireAndMount(settings);
+  if (state.cancelled || runtime[INJECTION_PROPERTY] !== state) {
+    handle.close();
+    return;
+  }
   const messages = runtime.chrome?.runtime?.onMessage;
   const onMessage = (message: unknown): void => {
     if (!isStillpointMessage(message)) return;

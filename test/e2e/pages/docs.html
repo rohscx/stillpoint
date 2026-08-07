@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Queue recovery guide</title></head><body>
+<header role="banner">Acme Platform status login support</header><nav>Guides API Reference SDKs Changelog</nav>
+<aside role="complementary">On this page Installation Configuration Recovery</aside>
+<main><h1>Recovering a paused delivery queue</h1>
+<p>A delivery queue pauses after repeated destination failures so that one unavailable endpoint cannot consume all worker capacity. Before resuming it, confirm whether the destination has recovered and preserve a sample failed request for diagnosis.</p>
+<h2>Inspect the pause reason</h2><p>Open the queue details and compare the recorded status codes with recent destination logs. Authentication failures require corrected credentials, while timeout clusters usually indicate capacity or network problems.</p>
+<h2>Test a single delivery</h2><p>Send one stored event through the test action. The action uses the current configuration but does not advance the production cursor, making it safe to repeat while validating headers and response bodies.</p>
+<h2>Resume processing</h2><p>Resume at the oldest retained event and watch the error rate for several minutes. If failures return, pause the queue again rather than allowing automatic retries to amplify pressure on the destination.</p>
+</main><div role="banner">Documentation cookies help improve Acme products.</div>
+<footer>Acme documentation legal footer and language selector</footer></body></html>

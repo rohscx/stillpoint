@@ -7,6 +7,7 @@ const common = {
   bundle: true,
   loader: { '.css': 'text' },
   minify: true,
+  charset: 'utf8',
   target: 'chrome116',
 };
 
@@ -29,6 +30,8 @@ await Promise.all([
     define: { __STILLPOINT_INJECTED__: 'true' },
   }),
   build({ ...common, entryPoints: ['src/sw.ts'], outfile: 'dist/sw.js', format: 'esm' }),
+  build({ ...common, entryPoints: ['src/reader/extract/readability.ts'], outfile: 'dist/extract.js', format: 'esm' }),
+  build({ ...common, entryPoints: ['src/reader/extract/heuristic.ts'], outfile: 'dist/heuristic.js', format: 'esm' }),
   build({ ...common, entryPoints: ['src/popup/popup.ts'], outfile: 'dist/popup.js', format: 'esm' }),
   copyFile('manifest.json', 'dist/manifest.json'),
   copyFile('src/popup/popup.html', 'dist/popup.html'),
@@ -37,7 +40,7 @@ await Promise.all([
 
 await import('./tools/make-icons.mjs');
 
-for (const file of ['reader.js', 'reader.iife.js', 'sw.js', 'popup.js']) {
+for (const file of ['reader.js', 'reader.iife.js', 'extract.js', 'heuristic.js', 'sw.js', 'popup.js']) {
   const bytes = readFileSync(`dist/${file}`);
   console.log(`${file}: ${bytes.length} bytes (${gzipSync(bytes).length} bytes gzipped)`);
 }
