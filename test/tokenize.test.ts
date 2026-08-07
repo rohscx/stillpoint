@@ -52,3 +52,43 @@ describe('tokenize', () => {
     expect(tokenize('漢字仮名交じり文')).toHaveLength(1);
   });
 });
+
+describe('hyphenation decides on the word, not attached punctuation', () => {
+  it('keeps "manufacturers." whole', () => {
+    // 13 letters plus a period. Counting the period split it into 'manufacture-' + 'rs.'
+    expect(tokenize('manufacturers.').map((t) => t.text)).toEqual(['manufacturers.']);
+  });
+
+  it('keeps a 13-letter word whole however it is punctuated', () => {
+    for (const punctuated of ['manufacturers,', '"manufacturers"', '(manufacturers)', 'manufacturers?!']) {
+      expect(tokenize(punctuated)).toHaveLength(1);
+    }
+  });
+
+  it('still splits a word that is genuinely too long', () => {
+    expect(tokenize('Rindfleischetikettierungsgesetz').length).toBeGreaterThan(1);
+  });
+
+  it('never leaves a runt chunk', () => {
+    const words = [
+      'Rindfleischetikettierungsaufgabenübertragungsgesetz',
+      'antidisestablishmentarianism',
+      'pneumonoultramicroscopicsilicovolcanoconiosis.',
+      'internationalization,',
+    ];
+    for (const word of words) {
+      const chunks = tokenize(word).map((t) => t.text);
+      const shortest = Math.min(...chunks.map((c) => Array.from(c).length));
+      const longest = Math.max(...chunks.map((c) => Array.from(c).length));
+      expect(shortest).toBeGreaterThanOrEqual(4);
+      expect(longest - shortest).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('reassembles to the original text', () => {
+    for (const word of ['Rindfleischetikettierungsgesetz', 'antidisestablishmentarianism.']) {
+      const rejoined = tokenize(word).map((t) => t.text).join('').replace(/-(?=.)/gu, '');
+      expect(rejoined).toBe(word);
+    }
+  });
+});

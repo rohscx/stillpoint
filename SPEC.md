@@ -84,12 +84,21 @@ Rules, applied in order:
    **paragraph break**; convert non-breaking spaces to spaces; normalise Unicode to NFC.
 2. Split on whitespace. Retain attached punctuation on the token — punctuation is
    displayed, and it drives timing.
-3. **Hyphenation of long tokens.** A token whose displayed length exceeds
-   `MAX_WORD_LEN` (default 13) is split into chunks of at most `MAX_WORD_LEN - 1`
-   characters. All chunks except the last get a trailing `-` appended to `text`. Split at
-   a vowel/consonant boundary when one exists in the last 3 candidate positions,
-   otherwise split hard. Each chunk is a full token and consumes its own tick. This
-   mirrors Spritz's behaviour and keeps the ORP column meaningful for long words.
+3. **Hyphenation of long tokens.** A token is split when its **word length** — glyph
+   count after stripping leading and trailing punctuation — exceeds `MAX_WORD_LEN`
+   (default 13). Measure the word, not the punctuation stuck to it: `manufacturers.` is
+   13 letters and a period, and counting the period split a perfectly readable word into
+   `manufacture-` and `rs.`. Trailing punctuation still counts toward *display* length for
+   the ORP lookup (§2.2); it just does not trigger a split.
+
+   Chunks are at most `MAX_WORD_LEN - 1` characters, and their sizes must differ by at
+   most one glyph before boundary adjustment — take `ceil(n / limit)` chunks and
+   distribute evenly, rather than taking the maximum each pass and leaving the remainder
+   as the last chunk. The greedy approach produces runts: a two-glyph final chunk is
+   harder to read than the unsplit word would have been. All chunks except the last get a
+   trailing `-`. Prefer a vowel/consonant boundary within one or two glyphs of the even
+   split, but never at the cost of starving the following chunk. Each chunk is a full
+   token and consumes its own tick.
 4. Compute `orp` per §2.2, `delayFactor` per §2.3.
 
 Edge cases that must be handled explicitly: URLs and email addresses (treat as a single

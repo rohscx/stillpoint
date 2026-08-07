@@ -36,35 +36,57 @@ function isPreferredBoundary(glyphs: readonly string[], position: number): boole
   return VOWEL.test(left) !== VOWEL.test(right);
 }
 
+const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
+
+// SPEC §2.1 rule 3: hyphenation is decided on the word, not on punctuation stuck to it.
+// 'manufacturers.' is 13 letters and a period; counting the period split a perfectly
+// readable word into 'manufacture-' and 'rs.'.
+function wordLength(text: string): number {
+  return Array.from(text.replace(EDGE_PUNCTUATION, '')).length;
+}
+
+/** Chunk sizes that differ by at most one glyph, so a split never leaves a runt. */
+function chunkSizes(total: number, limit: number): number[] {
+  const count = Math.ceil(total / limit);
+  const base = Math.floor(total / count);
+  const remainder = total % count;
+  return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
+}
+
 function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
-  const remaining = Array.from(piece.text);
+  const glyphs = Array.from(piece.text);
   const chunks: Piece[] = [];
-  const contentLimit = maxWordLen - 1;
+  // Every chunk but the last carries a trailing hyphen, so its content is one short.
+  const sizes = chunkSizes(glyphs.length, maxWordLen - 1);
+  let offset = 0;
   let consumedCodeUnits = 0;
 
-  while (remaining.length > maxWordLen) {
-    let splitAt = contentLimit;
-    for (let candidate = contentLimit; candidate >= Math.max(1, contentLimit - 2); candidate -= 1) {
-      if (isPreferredBoundary(remaining, candidate)) {
-        splitAt = candidate;
-        break;
+  for (const [index, size] of sizes.entries()) {
+    const isLast = index === sizes.length - 1;
+    let end = offset + size;
+    if (!isLast) {
+      // Nudge onto a vowel/consonant boundary when one is within reach and the shift
+      // neither overruns the limit nor starves the following chunk.
+      for (const candidate of [end, end - 1, end + 1, end - 2]) {
+        const taken = candidate - offset;
+        const left = glyphs.length - candidate;
+        if (taken < 1 || taken > maxWordLen - 1 || left < 2) continue;
+        if (isPreferredBoundary(glyphs, candidate)) {
+          end = candidate;
+          break;
+        }
       }
     }
-
-    const content = remaining.splice(0, splitAt).join('');
+    const content = glyphs.slice(offset, isLast ? glyphs.length : end).join('');
     chunks.push({
-      text: `${content}-`,
+      text: isLast ? content : `${content}-`,
       paraIdx: piece.paraIdx,
       sourceIdx: piece.sourceIdx + consumedCodeUnits,
     });
     consumedCodeUnits += content.length;
+    offset = isLast ? glyphs.length : end;
   }
 
-  chunks.push({
-    text: remaining.join(''),
-    paraIdx: piece.paraIdx,
-    sourceIdx: piece.sourceIdx + consumedCodeUnits,
-  });
   return chunks;
 }
 
@@ -94,7 +116,7 @@ export function tokenize(text: string, options: TokenizeOptions = {}): Token[] {
 
   // SPEC §2.1: script gating belongs to the caller; tokenisation remains whitespace-based.
   const pieces = rawPieces(text).flatMap((piece) =>
-    Array.from(piece.text).length > maxWordLen ? splitLongToken(piece, maxWordLen) : [piece],
+    wordLength(piece.text) > maxWordLen ? splitLongToken(piece, maxWordLen) : [piece],
   );
   const tokens: Token[] = [];
   let sentenceIdx = 0;
