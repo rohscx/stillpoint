@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node build.mjs",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "^22.15.0",
+    "esbuild": "^0.25.8",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

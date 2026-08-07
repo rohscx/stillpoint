@@ -1,0 +1,238 @@
+:host {
+  --sp-bg: #faf9f7;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-scrim: rgba(250, 249, 247, 0.94);
+  --sp-ui: #8a8783;
+  --sp-font-size: 36px;
+  --sp-font-stack: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sp-line-height: 1.2;
+  --sp-frame-width: clamp(320px, 32ch, 720px);
+  --sp-frame-height: 6.6em;
+  --sp-frame-radius: 4px;
+  --sp-frame-padding-y: 0.75em;
+  --sp-frame-padding-x: 1ch;
+  --sp-rule-width: 1px;
+  --sp-hash-length: 0.45em;
+  --sp-orp-column: 35%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --sp-bg: #16181c;
+    --sp-fg: #e8e6e3;
+    --sp-orp: #ff4a4a;
+    --sp-rule: #3a3d42;
+    --sp-scrim: rgba(12, 13, 15, 0.94);
+    --sp-ui: #6e7278;
+  }
+}
+
+:host([data-theme='light']) {
+  --sp-bg: #faf9f7;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-scrim: rgba(250, 249, 247, 0.94);
+  --sp-ui: #8a8783;
+}
+
+:host([data-theme='dark']) {
+  --sp-bg: #16181c;
+  --sp-fg: #e8e6e3;
+  --sp-orp: #ff4a4a;
+  --sp-rule: #3a3d42;
+  --sp-scrim: rgba(12, 13, 15, 0.94);
+  --sp-ui: #6e7278;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.sp-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: var(--sp-fg);
+  background: var(--sp-scrim);
+  font-family: var(--sp-font-stack);
+  font-size: var(--sp-font-size);
+  font-variant-ligatures: none;
+  font-kerning: none;
+  font-feature-settings: "tnum";
+  line-height: var(--sp-line-height);
+}
+
+.sp-reader {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  width: var(--sp-frame-width);
+  transform: translate(-50%, -50%);
+}
+
+.sp-redicle {
+  position: relative;
+  width: 100%;
+  height: var(--sp-frame-height);
+  padding: var(--sp-frame-padding-y) var(--sp-frame-padding-x);
+  overflow: hidden;
+  border-radius: var(--sp-frame-radius);
+  background: var(--sp-bg);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.sp-rule {
+  position: absolute;
+  right: var(--sp-frame-padding-x);
+  left: var(--sp-frame-padding-x);
+  height: var(--sp-rule-width);
+  background: var(--sp-rule);
+}
+
+.sp-rule-top {
+  top: var(--sp-frame-padding-y);
+}
+
+.sp-rule-bottom {
+  bottom: var(--sp-frame-padding-y);
+}
+
+.sp-hash {
+  position: absolute;
+  left: var(--sp-orp-column);
+  width: var(--sp-rule-width);
+  height: var(--sp-hash-length);
+  transform: translateX(-50%);
+  background: var(--sp-rule);
+}
+
+.sp-hash-top {
+  top: 0;
+}
+
+.sp-hash-bottom {
+  bottom: 0;
+}
+
+.sp-word-row {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-frame-padding-x);
+  left: var(--sp-frame-padding-x);
+  height: 1.2em;
+  transform: translateY(-50%);
+}
+
+.sp-word {
+  position: absolute;
+  left: var(--sp-orp-column);
+  transform: translateX(-0.5ch);
+  white-space: pre;
+}
+
+.sp-pre {
+  position: absolute;
+  right: 100%;
+}
+
+.sp-orp {
+  color: var(--sp-orp);
+}
+
+.sp-post {
+  position: absolute;
+  left: 100%;
+}
+
+.sp-progress {
+  width: 100%;
+  height: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--sp-rule) 55%, transparent);
+}
+
+.sp-progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--sp-ui);
+}
+
+.sp-controls {
+  color: var(--sp-ui);
+  font-family: var(--sp-font-stack);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  transition: opacity 400ms linear;
+}
+
+.sp-controls.sp-idle {
+  opacity: 0;
+}
+
+.sp-status {
+  min-height: 1.4em;
+  margin: 8px 0;
+}
+
+.sp-transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sp-button,
+.sp-slider {
+  color: inherit;
+  accent-color: var(--sp-orp);
+  font: inherit;
+}
+
+.sp-button {
+  min-width: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  background: var(--sp-bg);
+  cursor: pointer;
+}
+
+.sp-button:focus-visible,
+.sp-slider:focus-visible {
+  outline: 2px solid var(--sp-orp);
+  outline-offset: 2px;
+}
+
+.sp-slider {
+  width: 120px;
+}
+
+.sp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: pre-wrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-controls {
+    transition: none;
+  }
+
+  .sp-controls.sp-idle {
+    opacity: 1;
+  }
+}

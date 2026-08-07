@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Stillpoint Redicle fixture</title>
+  </head>
+  <body>
+    <button id="before-reader" type="button">Focus before reader</button>
+    <article>
+      <p>The fixture remains behind the reader.</p>
+    </article>
+    <script>
+      const nativeAttachShadow = Element.prototype.attachShadow;
+      window.__pageKeydownCount = 0;
+      document.addEventListener('keydown', () => { window.__pageKeydownCount += 1; });
+      Element.prototype.attachShadow = function captureClosedRoot(options) {
+        const root = nativeAttachShadow.call(this, options);
+        window.__stillpointShadow = root;
+        return root;
+      };
+    </script>
+    <script type="module">
+      import { mountReader } from '/dist/reader.js';
+
+      const passage = `a bb ccc dddd eeeee ffffff ggggggg hhhhhhhh iiiiiiiii jjjjjjjjjj kkkkkkkkkkk llllllllllll mmmmmmmmmmmmm nnnnnnnnnnnnnn ooooooooooooooo pppppppppppppppp qqqqqqqqqqqqqqqqq rrrrrrrrrrrrrrrrrr sssssssssssssssssss tttttttttttttttttttt End.
+
+Second paragraph begins here. It contains another sentence for navigation checks. Final words close the fixture.`;
+      window.__stillpointHandle = mountReader(passage, { maxWordLen: 30 });
+    </script>
+  </body>
+</html>

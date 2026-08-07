@@ -173,7 +173,10 @@ Additional rules:
 
 ### 2.4 WPM range
 
-150–1000 WPM. Default 350. Step 25 for keyboard adjust, 10 for the slider. Values persist
+150–1000 WPM. Default 350. Step 25 for keyboard adjust, 5 for the slider. The slider step
+**must divide the keyboard step**: a step of 10 cannot represent 375, so an `<input
+type=range>` coerces it to 380 and the control silently disagrees with the engine's actual
+WPM. Values persist
 per-user via `chrome.storage.sync`. The original marketed 250–1000; 150 is included as an
 accessibility floor.
 
