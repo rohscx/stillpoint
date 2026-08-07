@@ -5,12 +5,45 @@ import { Controls } from './ui/controls.js';
 import { Keyboard } from './ui/keyboard.js';
 import { Overlay } from './ui/overlay.js';
 import { Redicle } from './ui/redicle.js';
+import { isStillpointMessage } from '../shared/messages.js';
+import { loadSettings, migrate } from '../shared/settings.js';
 import type { SettingsOverrides, Token } from '../shared/types.js';
+
+declare const __STILLPOINT_INJECTED__: boolean;
+
+const INJECTION_PROPERTY = '__stillpointInjectedReader__';
+
+interface RuntimeMessageEvent {
+  addListener: (listener: (message: unknown) => void) => void;
+  removeListener: (listener: (message: unknown) => void) => void;
+}
+
+interface InjectionRuntime {
+  chrome?: { runtime?: { onMessage?: RuntimeMessageEvent } };
+  __stillpointInjectedReader__?: InjectionState;
+}
+
+interface InjectionState {
+  cancelled: boolean;
+  close: () => void;
+  dispose?: () => void;
+}
 
 export interface ReaderHandle {
   close: () => void;
+  setWpm: (wpm: number) => void;
   setFontSize: (fontSize: 20 | 28 | 36 | 48) => void;
   setTheme: (theme: 'auto' | 'light' | 'dark') => void;
+}
+
+function injectionRuntime(): InjectionRuntime {
+  return globalThis as typeof globalThis & InjectionRuntime;
+}
+
+function clearInjectionState(): void {
+  const runtime = injectionRuntime();
+  runtime[INJECTION_PROPERTY]?.dispose?.();
+  delete runtime[INJECTION_PROPERTY];
 }
 
 function currentToken(tokens: readonly Token[], index: number): Token | undefined {
@@ -62,6 +95,7 @@ export function mountReader(text: string, overrides: SettingsOverrides = {}): Re
     keyboard?.destroy();
     controls.destroy();
     overlay.close();
+    clearInjectionState();
   };
   const togglePlaying = (): void => {
     if (scheduler.isPlaying) scheduler.pause();
@@ -115,7 +149,49 @@ export function mountReader(text: string, overrides: SettingsOverrides = {}): Re
 
   return {
     close,
+    setWpm,
     setFontSize: (fontSize) => overlay.setFontSize(fontSize),
     setTheme: (theme) => overlay.setTheme(theme),
   };
 }
+
+async function runInjectedEntry(): Promise<void> {
+  const runtime = injectionRuntime();
+  const previous = runtime[INJECTION_PROPERTY];
+  if (previous !== undefined) {
+    previous.close();
+    return;
+  }
+
+  const state: InjectionState = {
+    cancelled: false,
+    close: () => {
+      state.cancelled = true;
+      clearInjectionState();
+    },
+  };
+  runtime[INJECTION_PROPERTY] = state;
+
+  const settings = await loadSettings().catch(() => migrate(undefined));
+  if (state.cancelled || runtime[INJECTION_PROPERTY] !== state) return;
+  const selection = window.getSelection()?.toString().trim() ?? '';
+  const text = selection === ''
+    ? 'Full-page extraction arrives in Stillpoint milestone M4.'
+    : selection;
+  const handle = mountReader(text, settings);
+  const messages = runtime.chrome?.runtime?.onMessage;
+  const onMessage = (message: unknown): void => {
+    if (!isStillpointMessage(message)) return;
+    if (message.kind === 'close') handle.close();
+    if (message.kind === 'settings-changed') {
+      handle.setWpm(message.settings.wpm);
+      handle.setFontSize(message.settings.fontSize);
+      handle.setTheme(message.settings.theme);
+    }
+  };
+  messages?.addListener(onMessage);
+  state.dispose = () => messages?.removeListener(onMessage);
+  state.close = () => handle.close();
+}
+
+if (__STILLPOINT_INJECTED__) void runInjectedEntry();

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stillpoint</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>Stillpoint</h1>
+      <label class="field" for="wpm">
+        <span>Speed</span>
+        <output id="wpm-value" for="wpm">350 WPM</output>
+      </label>
+      <input id="wpm" type="range" min="150" max="1000" step="5" value="350">
+
+      <label class="field" for="theme"><span>Theme</span></label>
+      <select id="theme">
+        <option value="auto">Auto</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+
+      <label class="field" for="font-size"><span>Font size</span></label>
+      <select id="font-size">
+        <option value="20">S</option>
+        <option value="28">M</option>
+        <option value="36">L</option>
+        <option value="48">XL</option>
+      </select>
+
+      <p class="hint">Click the toolbar icon, or press Alt+S, to start reading.</p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

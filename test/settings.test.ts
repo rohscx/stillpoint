@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest';
+import { migrate } from '../src/shared/settings.js';
+import { DEFAULT_SETTINGS, type Settings } from '../src/shared/types.js';
+
+function expectValid(settings: Settings): void {
+  expect(settings.version).toBe(1);
+  expect(settings.wpm).toBeGreaterThanOrEqual(150);
+  expect(settings.wpm).toBeLessThanOrEqual(1_000);
+  expect([20, 28, 36, 48]).toContain(settings.fontSize);
+  expect(['auto', 'light', 'dark']).toContain(settings.theme);
+  expect(Number.isFinite(settings.maxWordLen)).toBe(true);
+  for (const factor of Object.values(settings.factors)) expect(Number.isFinite(factor)).toBe(true);
+  expect(typeof settings.autoRewindOnResume).toBe('boolean');
+  expect(typeof settings.hideControlsWhilePlaying).toBe('boolean');
+}
+
+describe('migrate', () => {
+  it.each([undefined, null, {}])('deep-merges defaults for %p', (raw) => {
+    const settings = migrate(raw);
+    expectValid(settings);
+    expect(settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('fills nested factors missing from a v0-shaped object', () => {
+    const settings = migrate({ version: 0, wpm: 425, theme: 'dark' });
+    expectValid(settings);
+    expect(settings.wpm).toBe(425);
+    expect(settings.theme).toBe('dark');
+    expect(settings.factors).toEqual(DEFAULT_SETTINGS.factors);
+  });
+
+  it('sanitizes an unknown future version', () => {
+    const settings = migrate({ version: 99, wpm: 500, factors: { sentence: 3 } });
+    expectValid(settings);
+    expect(settings.version).toBe(1);
+    expect(settings.wpm).toBe(500);
+    expect(settings.factors.sentence).toBe(3);
+    expect(settings.factors.clause).toBe(DEFAULT_SETTINGS.factors.clause);
+  });
+
+  it('replaces wrong-typed values', () => {
+    const settings = migrate({ wpm: 'fast', fontSize: 'large', factors: { numeric: 'slow' } });
+    expectValid(settings);
+    expect(settings.wpm).toBe(DEFAULT_SETTINGS.wpm);
+    expect(settings.fontSize).toBe(DEFAULT_SETTINGS.fontSize);
+    expect(settings.factors.numeric).toBe(DEFAULT_SETTINGS.factors.numeric);
+  });
+
+  it.each([[100, 150], [1_500, 1_000]])('clamps WPM %i to %i', (raw, expected) => {
+    const settings = migrate({ wpm: raw });
+    expectValid(settings);
+    expect(settings.wpm).toBe(expected);
+  });
+
+  it('clamps font sizes to the nearest allowed value', () => {
+    expect(migrate({ fontSize: 21 }).fontSize).toBe(20);
+    expect(migrate({ fontSize: 31 }).fontSize).toBe(28);
+    expect(migrate({ fontSize: 100 }).fontSize).toBe(48);
+  });
+});

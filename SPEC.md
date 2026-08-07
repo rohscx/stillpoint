@@ -330,6 +330,13 @@ Strip from the result: sequences of ≥3 identical punctuation, footnote markers
 | Entry point | Behaviour |
 |---|---|
 | Toolbar icon click | Inject and open the reader on the active tab |
+
+The toolbar action deliberately has **no `default_popup`**. Chrome does not fire
+`action.onClicked` when a popup is configured, so the two are mutually exclusive, and for
+a speed reader the one-click instant start is worth more than a settings panel one click
+closer. Settings live in the in-reader gear (§3.4) and in `options_ui`, which reuses the
+same `popup.html`.
+
 | Keyboard command `Alt+S` (`Cmd+Shift+S` on macOS) | Same |
 | Context menu on a selection: "Read with Stillpoint" | Inject and open with that selection |
 | Context menu on page: "Read this page with Stillpoint" | Inject and open with extracted article |
@@ -424,7 +431,8 @@ chunk. TypeScript strict. Bundled with `esbuild` (`--minify --format=esm --split
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
   "background": { "service_worker": "sw.js", "type": "module" },
-  "action": { "default_popup": "popup.html" },
+  "action": { "default_title": "Stillpoint" },
+  "options_ui": { "page": "popup.html", "open_in_tab": false },
   "commands": {
     "open-reader": {
       "suggested_key": { "default": "Alt+S", "mac": "Command+Shift+S" },
@@ -460,6 +468,12 @@ show a badge, don't fail silently.
   important test in the suite — it is what makes it Spritz and not a word flasher.
 - **Extraction.** A fixture set of saved HTML (news article, blog, docs page, forum
   thread, SPA-rendered page) asserting extracted length and paragraph count within bounds.
+- **Extension shell.** A load-unpacked run under Playwright's persistent context asserting
+  the service worker registers without console errors, that injection mounts exactly one
+  overlay, that a second injection toggles it closed rather than stacking, and that the
+  options page renders. Note that the `activeTab` grant itself cannot be automated —
+  Chrome only grants it on a genuine user gesture, and neither Playwright nor the
+  extension can synthesize one. That single step is manual-verification-only, by design.
 - **Perf.** A scripted run at 800 WPM for 60 s under the Chrome tracing API asserting no
   tick exceeds 2 ms and no forced reflow occurs.
 

@@ -1,0 +1,87 @@
+:root {
+  color-scheme: light dark;
+  --sp-bg: #faf9f7;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-ui: #8a8783;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sp-bg: #16181c;
+    --sp-fg: #e8e6e3;
+    --sp-orp: #ff4a4a;
+    --sp-rule: #3a3d42;
+    --sp-ui: #6e7278;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 280px;
+  margin: 0;
+  background: var(--sp-bg);
+  color: var(--sp-fg);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+main { padding: 18px; }
+
+h1 {
+  margin: 0 0 18px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  color: var(--sp-ui);
+}
+
+output { color: var(--sp-fg); }
+
+input,
+select,
+button {
+  width: 100%;
+  margin-top: 7px;
+  font: inherit;
+}
+
+input { accent-color: var(--sp-orp); }
+
+select {
+  padding: 7px 9px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  background: var(--sp-bg);
+  color: var(--sp-fg);
+}
+
+button {
+  margin-top: 20px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--sp-orp);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible { outline: 2px solid var(--sp-orp); outline-offset: 2px; }
+
+.hint {
+  margin: 4px 0 0;
+  color: var(--sp-ui);
+  font-size: 11px;
+  line-height: 1.4;
+}
