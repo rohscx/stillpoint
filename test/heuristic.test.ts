@@ -9,7 +9,7 @@ interface FixtureNode {
   hiddenByLayout?: boolean;
 }
 
-const BLOCK_NAMES = new Set(['p', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+const BLOCK_NAMES = new Set(['p', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre']);
 const CONTAINER_NAMES = new Set(['article', 'main', 'section', 'div', 'body']);
 
 class FixtureElement {
@@ -129,7 +129,7 @@ describe('extractHeuristically', () => {
       { tag: 'aside', children: [{ tag: 'p', text: 'Most popular stories and sponsored links.' }] },
       { tag: 'footer', children: [{ tag: 'p', text: 'Copyright and subscription information.' }] },
     ]);
-    const text = extractHeuristically(documentRoot);
+    const text = extractHeuristically(documentRoot).map((block) => block.kind === 'text' ? block.text : block.lines.join('\n')).join('\n\n');
     expect(text).toContain('The river returns to its old course');
     expect(text).toContain('This restoration gives the valley room to breathe again.');
     expect(text).not.toContain('World');
@@ -145,10 +145,24 @@ describe('extractHeuristically', () => {
       { tag: 'p', text: 'Hidden by a zero client rectangle.', hiddenByLayout: true },
       { tag: 'p', text: 'Another visible paragraph completes the primary content.' },
     ] }]);
-    const text = extractHeuristically(documentRoot);
+    const text = extractHeuristically(documentRoot).map((block) => block.kind === 'text' ? block.text : block.lines.join('\n')).join('\n\n');
     expect(text).toContain('Visible primary paragraph');
     expect(text).not.toContain('Hidden from accessibility');
     expect(text).not.toContain('Hidden by CSS');
     expect(text).not.toContain('zero client rectangle');
+  });
+
+  it('returns preformatted code verbatim with language metadata', () => {
+    const source = 'const values = [1];\n\n  values.push(2); !!!\n';
+    const documentRoot = domFixture([{ tag: 'main', children: [
+      { tag: 'p', text: 'A prose introduction long enough to establish the dense content region.' },
+      { tag: 'pre', text: source, attrs: { class: 'language-ts' } },
+      { tag: 'p', text: 'A prose conclusion keeps this fixture representative of an article.' },
+    ] }]);
+    expect(extractHeuristically(documentRoot)).toContainEqual({
+      kind: 'code',
+      lines: ['const values = [1];', '', '  values.push(2); !!!'],
+      lang: 'ts',
+    });
   });
 });

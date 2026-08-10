@@ -92,3 +92,30 @@ describe('hyphenation decides on the word, not attached punctuation', () => {
     }
   });
 });
+
+describe('code block tokenization', () => {
+  it('preserves every line verbatim as one token with shared block metadata', () => {
+    const lines = ['function run() {', '', '  const value = supercalifragilisticexpialidocious;', 'x'.repeat(60), '}'];
+    const tokens = tokenize([
+      { kind: 'text', text: 'Before.' },
+      { kind: 'code', lines, lang: 'ts' },
+      { kind: 'text', text: 'After.' },
+    ]);
+    const code = tokens.filter((token) => token.kind === 'code');
+    expect(code.map((token) => token.text)).toEqual(lines);
+    expect(code).toHaveLength(lines.length);
+    expect(new Set(code.map((token) => token.paraIdx)).size).toBe(1);
+    expect(new Set(code.map((token) => token.block)).size).toBe(1);
+    expect(code[2]?.text).toBe('  const value = supercalifragilisticexpialidocious;');
+    expect(code[3]?.text).toHaveLength(60);
+    expect(code.every((token) => !('orp' in token))).toBe(true);
+  });
+
+  it('applies only the configurable code-line factor', () => {
+    const [token] = tokenize([{ kind: 'code', lines: ['statement!!!'] }], {
+      factors: { sentence: 9, clause: 8, codeLine: 1.25 },
+    });
+    expect(token?.kind).toBe('code');
+    expect(token?.delayFactor).toBe(1.25);
+  });
+});

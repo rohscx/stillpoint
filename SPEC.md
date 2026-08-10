@@ -200,6 +200,48 @@ RTL scripts (Arabic, Hebrew): mirror the layout — ORP column at 62% from the l
 set on the container. If either is too costly, ship v1 Latin-only and gate on a script
 detection that shows a clear "unsupported script" message rather than garbage.
 
+### 2.6 Code blocks
+
+RSVP cannot present code. Streaming `for (let i = 0; i < n; i++)` a token at a time
+destroys the two things that carry its meaning — the line structure and the indentation.
+A code block must therefore be shown whole, and read at a different granularity.
+
+**Stillpoint reads code line by line.** A code block expands at tokenise time into one
+token per line. The scheduler is unchanged: it still ticks tokens against absolute
+deadlines; only the unit differs. This is the reason to prefer line-stepping over a timed
+hold or a manual gate — it needs no new scheduler state, no new keybinding, and no guess
+about how long a reader needs.
+
+`Token` becomes a discriminated union on `kind`:
+
+```ts
+interface CodeBlock { id: number; lines: readonly string[]; lang?: string }
+
+interface WordToken { kind: 'word'; text; orp; delayFactor; sentenceIdx; paraIdx; sourceIdx }
+interface CodeToken { kind: 'code'; text; delayFactor; sentenceIdx; paraIdx; sourceIdx;
+                      block: CodeBlock; lineIdx: number }
+type Token = WordToken | CodeToken;
+```
+
+- Code tokens have **no ORP**. There is no pivot letter in a line of code, and inventing
+  one would be worse than none.
+- `text` on a code token is its line, retained verbatim: **no whitespace collapsing, no
+  trimming, no hyphenation** (§2.1 rule 3 does not apply). Indentation is content.
+- A blank line inside a block is a real token and consumes a tick; it is how code is
+  paragraphed.
+- Every line of a block shares one `paraIdx`, so paragraph navigation treats the block as
+  a single unit and never lands the reader in the middle of it.
+
+**Line duration.** `base_ms × (1.1 + glyphs / 34)`, floored at 320 ms, times the
+`codeLine` factor (default 1.0, user-tunable). Longer lines get proportionally longer,
+and the floor keeps a run of short lines — closing braces, blank lines — from flickering
+past. The §2.3 punctuation factors do **not** apply: a trailing semicolon is not a
+sentence ending.
+
+**Word counts exclude code tokens.** The status line counts prose words (§3.4); a block
+reports its own position separately. Progress across the whole document still counts every
+token, since every token is a tick.
+
 ---
 
 ## 3. Visual design — the Redicle
@@ -317,6 +359,33 @@ close, preserving `scrollY`).
 
 ---
 
+### 3.7 Presenting a code block
+
+While a code token is current, the Redicle shows the **whole block**, not one line. The
+surrounding lines are the context that makes a line readable; hiding them would reproduce
+the problem RSVP has with code in the first place.
+
+| Element | Spec |
+|---|---|
+| Frame | Grows to fit the block, up to 60% of viewport height, then scrolls internally |
+| Current line | Full opacity, background `--sp-orp` at 13% |
+| Other lines | Opacity 0.34 |
+| Type | The reading monospace stack at 0.38 × the reader font size |
+| Wrapping | **None.** A long line scrolls horizontally inside the block; wrapping code lies about its structure |
+| Header | `‹lang› · ‹n› lines` left, `line ‹i› / ‹n›` right, in `--sp-ui` |
+
+The word row is hidden while a block is shown; the rules and hash marks are hidden with
+it, since there is no ORP column to point at.
+
+**Build the block DOM once, on entering the block.** Per line, change only the highlight
+class and, when the current line is out of view, one `scrollIntoView({ block: 'nearest' })`.
+Rebuilding the block per line would put DOM construction in the tick path, which §1.3
+forbids and the perf suite catches. The entry tick may exceed the 2 ms budget — it happens
+once per block — but no subsequent line tick may.
+
+Returning to prose restores the word row, the rules and the hash marks unchanged. The
+§3.1 alignment mechanism must be untouched by any of this.
+
 ### 3.6 Repositioning the Redicle
 
 The default position (§3.1: horizontally centred, 38% from the top) suits a conventional
@@ -352,6 +421,22 @@ pass at a non-default position — add a case that proves it.
 ---
 
 ## 4. Text acquisition
+
+Extraction returns **blocks, not a flat string**:
+
+```ts
+type Block = { kind: 'text'; text: string } | { kind: 'code'; lines: string[]; lang?: string };
+```
+
+Code blocks must survive extraction intact. They currently do not: the heuristic's block
+selector omits `pre`, so blocks are dropped, and the Readability path keeps `pre` but then
+runs `replace(/\s+/gu, ' ')` over it, flattening indentation and newlines into one line.
+Collect `pre` (and `pre > code`) as `kind: 'code'`, split on newlines, and **apply none of
+the cleaning rules below to it** — stripping repeated punctuation from source code
+corrupts it. Read the language from a `language-*` / `lang-*` class when present.
+
+A selection that contains no newlines is prose. Paste is always prose; a paste panel
+cannot distinguish code reliably and guessing wrong is worse than not trying.
 
 Resolution order when the reader is invoked:
 

@@ -69,5 +69,10 @@ export function computeDelayFactor(
 // it here would create a second source of truth that could silently disagree.
 export function tokenDurationMs(token: Token, wpm: number): number {
   if (!Number.isFinite(wpm) || wpm <= 0) throw new RangeError('wpm must be a positive finite number');
+  if (token.kind === 'code') {
+    // SPEC §2.6
+    const glyphs = Array.from(token.text).length;
+    return Math.max(320, (60_000 / wpm) * (1.1 + glyphs / 34)) * token.delayFactor;
+  }
   return (60_000 / wpm) * token.delayFactor;
 }

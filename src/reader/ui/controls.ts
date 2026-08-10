@@ -37,6 +37,7 @@ export class Controls {
   readonly #status: HTMLElement;
   readonly #playButton: HTMLButtonElement;
   readonly #slider: HTMLInputElement;
+  readonly #wordTotal: number;
   #playing = false;
   #lastStatusUpdate = -Infinity;
   #pendingStatusTimer: number | undefined;
@@ -47,6 +48,7 @@ export class Controls {
 
   constructor(documentRoot: Document, tokens: readonly Token[], wpm: number, actions: ControlActions) {
     this.#tokens = tokens;
+    this.#wordTotal = tokens.filter((token) => token.kind === 'word').length;
     this.#pendingWpm = wpm;
     this.progressElement = documentRoot.createElement('div');
     this.progressElement.className = 'sp-progress';
@@ -152,8 +154,11 @@ export class Controls {
     const remaining = this.#tokens
       .slice(Math.max(0, index + 1))
       .reduce((total, token) => total + tokenDurationMs(token, wpm), 0);
-    const current = this.#tokens.length === 0 ? 0 : Math.min(index + 1, this.#tokens.length);
-    const progress = `${wpm} WPM · ${current} / ${this.#tokens.length} words · ${remainingLabel(remaining)} left`;
+    const token = this.#tokens[index];
+    const position = token?.kind === 'code'
+      ? `line ${token.lineIdx + 1} / ${token.block.lines.length}`
+      : `${this.#tokens.slice(0, Math.max(0, index + 1)).filter((item) => item.kind === 'word').length} / ${this.#wordTotal} words`;
+    const progress = `${wpm} WPM · ${position} · ${remainingLabel(remaining)} left`;
     this.#status.textContent = this.#stalled
       ? `Paused: tab was backgrounded · ${progress}`
       : progress;

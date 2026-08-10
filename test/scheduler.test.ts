@@ -5,6 +5,7 @@ import { Scheduler, type SchedulerClock } from '../src/reader/engine/scheduler.j
 
 function makeTokens(count: number): Token[] {
   return Array.from({ length: count }, (_, index) => ({
+    kind: 'word',
     text: `w${index}`,
     orp: 1,
     delayFactor: 1,

@@ -1,6 +1,8 @@
 import { NOISE_SELECTOR } from './noise.js';
+import { codeBlock } from './blocks.js';
+import type { Block } from '../../shared/types.js';
 
-const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6';
+const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
 const CONTAINER_SELECTOR = 'article, main, section, div, body';
 
 function normalizedText(element: Element): string {
@@ -35,14 +37,14 @@ function semanticBonus(element: Element): number {
 }
 
 // Pure DOM input makes the fallback testable without touching the live page (SPEC §4).
-export function extractHeuristically(documentRoot: Document): string {
+export function extractHeuristically(documentRoot: Document): Block[] {
   const blocks = Array.from(documentRoot.querySelectorAll(BLOCK_SELECTOR)).filter((element) => {
     if (isExcluded(element) || !isVisible(element, documentRoot)) return false;
     if (normalizedText(element) === '') return false;
     // Prefer the inner semantic block so a <blockquote><p>…</p></blockquote> is not duplicated.
     return element.querySelector(BLOCK_SELECTOR) === null;
   });
-  if (blocks.length === 0) return '';
+  if (blocks.length === 0) return [];
 
   const candidates = Array.from(documentRoot.querySelectorAll(CONTAINER_SELECTOR));
   let densest: Element | undefined;
@@ -57,9 +59,10 @@ export function extractHeuristically(documentRoot: Document): string {
     }
   }
 
-  if (densest === undefined) return '';
+  if (densest === undefined) return [];
   return blocks
     .filter((block) => block === densest || densest.contains(block))
-    .map(normalizedText)
-    .join('\n\n');
+    .map((element): Block => element.tagName.toLocaleLowerCase() === 'pre'
+      ? codeBlock(element)
+      : { kind: 'text', text: normalizedText(element) });
 }

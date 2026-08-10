@@ -89,6 +89,35 @@ test('ORP alignment survives a non-default Redicle position', async ({ page }: {
   expect(Math.abs(centers.orp - centers.hash)).toBeLessThanOrEqual(0.5);
 });
 
+test('ORP alignment is restored after entering and exiting a code block', async ({ page }) => {
+  await page.evaluate(async () => {
+    const state = window as unknown as { __stillpointHandle: { close: () => void } };
+    state.__stillpointHandle.close();
+    const url = '/dist/reader.js';
+    const module = await import(url) as {
+      mountReader: (blocks: unknown[]) => { close: () => void };
+    };
+    state.__stillpointHandle = module.mountReader([
+      { kind: 'text', text: 'Before.' },
+      { kind: 'code', lines: ['const answer = 42;', 'return answer;'], lang: 'ts' },
+      { kind: 'text', text: 'Restored.' },
+    ]);
+  });
+  await pressReal(page, 'ArrowRight');
+  await pressReal(page, 'ArrowRight');
+  await pressReal(page, 'PageDown');
+
+  const centers = await page.evaluate(() => {
+    const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
+    const orp = root.querySelector('.sp-orp')?.getBoundingClientRect();
+    const hash = root.querySelector('.sp-hash-top')?.getBoundingClientRect();
+    if (orp === undefined || hash === undefined) return undefined;
+    return { orp: orp.x + orp.width / 2, hash: hash.x + hash.width / 2 };
+  });
+  expect(centers).toBeDefined();
+  if (centers !== undefined) expect(Math.abs(centers.orp - centers.hash)).toBeLessThanOrEqual(0.5);
+});
+
 test('all keyboard bindings perform their specified actions', async ({ page }: { page: Page }) => {
   const playLabel = async (): Promise<string | null> => page.evaluate(() => {
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;

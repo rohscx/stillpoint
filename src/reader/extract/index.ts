@@ -1,18 +1,19 @@
 import { cleanExtractedText } from './clean.js';
+import type { Block } from '../../shared/types.js';
 
 const MIN_ARTICLE_LENGTH = 200;
 
 interface ReadabilityModule {
-  extractReadableText: (documentRoot: Document) => string;
+  extractReadableText: (documentRoot: Document) => Block[];
 }
 
 interface HeuristicModule {
-  extractHeuristically: (documentRoot: Document) => string;
+  extractHeuristically: (documentRoot: Document) => Block[];
 }
 
 export interface AcquisitionResult {
   source: 'selection' | 'readability' | 'heuristic' | 'paste';
-  text: string;
+  blocks: Block[];
 }
 
 interface ChromeRuntime {
@@ -41,14 +42,14 @@ export async function acquireText(
   selectedText: string = documentRoot.defaultView?.getSelection()?.toString() ?? '',
 ): Promise<AcquisitionResult> {
   if (selectedText.trim() !== '') {
-    return { source: 'selection', text: cleanExtractedText(selectedText) };
+    return { source: 'selection', blocks: [{ kind: 'text', text: cleanExtractedText(selectedText) }] };
   }
 
   try {
     const readability = await loadReadability(documentRoot);
-    const readableText = cleanExtractedText(readability.extractReadableText(documentRoot));
-    if (readableText.length >= MIN_ARTICLE_LENGTH) {
-      return { source: 'readability', text: readableText };
+    const readableBlocks = cleanBlocks(readability.extractReadableText(documentRoot));
+    if (blockLength(readableBlocks) >= MIN_ARTICLE_LENGTH) {
+      return { source: 'readability', blocks: readableBlocks };
     }
   } catch {
     // A blocked/missing lazy resource degrades to the local fallback (SPEC §4).
@@ -56,12 +57,26 @@ export async function acquireText(
 
   try {
     const heuristic = await loadHeuristic(documentRoot);
-    const heuristicText = cleanExtractedText(heuristic.extractHeuristically(documentRoot));
-    if (heuristicText.length >= MIN_ARTICLE_LENGTH) {
-      return { source: 'heuristic', text: heuristicText };
+    const heuristicBlocks = cleanBlocks(heuristic.extractHeuristically(documentRoot));
+    if (blockLength(heuristicBlocks) >= MIN_ARTICLE_LENGTH) {
+      return { source: 'heuristic', blocks: heuristicBlocks };
     }
   } catch {
     // If both web-accessible resources are unavailable, paste remains usable.
   }
-  return { source: 'paste', text: '' };
+  return { source: 'paste', blocks: [] };
+}
+
+function cleanBlocks(blocks: readonly Block[]): Block[] {
+  return blocks.flatMap((block): Block[] => {
+    if (block.kind === 'code') return [block];
+    const text = cleanExtractedText(block.text);
+    return text === '' ? [] : [{ kind: 'text', text }];
+  });
+}
+
+function blockLength(blocks: readonly Block[]): number {
+  return blocks.reduce((total, block) => total + (
+    block.kind === 'text' ? block.text.length : block.lines.reduce((sum, line) => sum + line.length, 0)
+  ), 0);
 }

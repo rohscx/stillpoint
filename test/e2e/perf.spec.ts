@@ -59,3 +59,52 @@ test('800 WPM render ticks stay within CPU and layout budgets', async ({ page, c
   expect(layoutDelta).toBeLessThanOrEqual(2);
   expect(styleDelta).toBeLessThanOrEqual(2);
 });
+
+test('code line ticks construct no DOM after block entry and stay within budget', async ({ page }) => {
+  await page.goto('/test/e2e/perf.html');
+  const result = await page.evaluate(async () => {
+    const state = window as unknown as {
+      __stillpointHandle: { close: () => void };
+      __stillpointShadow: ShadowRoot;
+    };
+    state.__stillpointHandle.close();
+    const nativeCreateElement = Document.prototype.createElement;
+    let constructions = 0;
+    Document.prototype.createElement = function countedCreateElement(
+      name: string,
+      options?: ElementCreationOptions,
+    ): HTMLElement {
+      constructions += 1;
+      return nativeCreateElement.call(this, name, options);
+    };
+    const durations: number[] = [];
+    const url = '/dist/reader.js';
+    const module = await import(url) as {
+      mountReader: (
+        blocks: unknown[],
+        settings: object,
+        instrumentation: { onRender: (duration: number) => void },
+      ) => { close: () => void };
+    };
+    state.__stillpointHandle = module.mountReader([
+      { kind: 'text', text: 'Before' },
+      { kind: 'code', lines: Array.from({ length: 80 }, (_, index) => `  line_${index}();`) },
+      { kind: 'text', text: 'After' },
+    ], { wpm: 800 }, { onRender: (duration) => durations.push(duration) });
+    const target = state.__stillpointShadow.querySelector('.sp-button');
+    if (!(target instanceof HTMLElement)) return { entryConstructions: 0, lineConstructions: -1, durations: [] };
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, composed: true }));
+    const entryConstructions = constructions;
+    constructions = 0;
+    durations.length = 0;
+    for (let index = 0; index < 60; index += 1) {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, composed: true }));
+    }
+    Document.prototype.createElement = nativeCreateElement;
+    return { entryConstructions, lineConstructions: constructions, durations };
+  });
+  expect(result.entryConstructions).toBeGreaterThan(0);
+  expect(result.lineConstructions).toBe(0);
+  expect(result.durations).toHaveLength(60);
+  expect(Math.max(...result.durations)).toBeLessThanOrEqual(2);
+});

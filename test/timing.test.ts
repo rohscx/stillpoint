@@ -38,7 +38,7 @@ describe('timing factors', () => {
   it('uses merged setting overrides and converts WPM to milliseconds', () => {
     expect(computeDelayFactor('stop.', { sentence: 3 })).toBe(3);
     const token: Token = {
-      text: 'word', orp: 1, delayFactor: 2, sentenceIdx: 0, paraIdx: 0, sourceIdx: 0,
+      kind: 'word', text: 'word', orp: 1, delayFactor: 2, sentenceIdx: 0, paraIdx: 0, sourceIdx: 0,
     };
     // 60000/300 = 200ms base, times the token's baked-in delayFactor of 2.
     expect(tokenDurationMs(token, 300)).toBe(400);
@@ -47,8 +47,19 @@ describe('timing factors', () => {
 
   it('rejects a non-positive WPM', () => {
     const token: Token = {
-      text: 'word', orp: 1, delayFactor: 1, sentenceIdx: 0, paraIdx: 0, sourceIdx: 0,
+      kind: 'word', text: 'word', orp: 1, delayFactor: 1, sentenceIdx: 0, paraIdx: 0, sourceIdx: 0,
     };
     expect(() => tokenDurationMs(token, 0)).toThrow(RangeError);
+  });
+
+  it('uses the code-line formula, floor, and factor without punctuation pauses', () => {
+    const block = { id: 0, lines: [';', 'x'.repeat(60)] };
+    const short: Token = {
+      kind: 'code', text: ';', delayFactor: 1, sentenceIdx: 0, paraIdx: 0,
+      sourceIdx: 0, block, lineIdx: 0,
+    };
+    const long: Token = { ...short, text: 'x'.repeat(60), delayFactor: 1.5, lineIdx: 1 };
+    expect(tokenDurationMs(short, 1_000)).toBe(320);
+    expect(tokenDurationMs(long, 300)).toBeCloseTo(200 * (1.1 + 60 / 34) * 1.5);
   });
 });

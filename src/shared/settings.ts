@@ -53,6 +53,7 @@ function timingFactors(value: unknown): TimingFactors {
     longWord: positiveNumber(raw.longWord, DEFAULT_SETTINGS.factors.longWord),
     numeric: positiveNumber(raw.numeric, DEFAULT_SETTINGS.factors.numeric),
     paraStart: positiveNumber(raw.paraStart, DEFAULT_SETTINGS.factors.paraStart),
+    codeLine: positiveNumber(raw.codeLine, DEFAULT_SETTINGS.factors.codeLine),
   };
 }
 

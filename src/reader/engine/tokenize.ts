@@ -1,4 +1,11 @@
-import type { Script, Token, TokenizeOptions } from '../../shared/types.js';
+import type {
+  Block,
+  CodeBlock,
+  Script,
+  Token,
+  TokenizeOptions,
+  WordToken,
+} from '../../shared/types.js';
 import { DEFAULT_SETTINGS } from '../../shared/types.js';
 import { orpIndexForText } from './orp.js';
 import { computeDelayFactor, endsSentence } from './timing.js';
@@ -107,19 +114,19 @@ function rawPieces(text: string): Piece[] {
   return pieces;
 }
 
-export function tokenize(text: string, options: TokenizeOptions = {}): Token[] {
-  if (typeof text !== 'string') throw new TypeError('text must be a string');
+function wordTokens(
+  text: string,
+  options: TokenizeOptions,
+  paraOffset: number,
+  sentenceOffset: number,
+  sourceOffset: number,
+): { tokens: WordToken[]; paraCount: number; sentenceCount: number } {
   const maxWordLen = options.maxWordLen ?? DEFAULT_SETTINGS.maxWordLen;
-  if (!Number.isInteger(maxWordLen) || maxWordLen < 2) {
-    throw new RangeError('maxWordLen must be an integer of at least 2');
-  }
-
-  // SPEC §2.1: script gating belongs to the caller; tokenisation remains whitespace-based.
   const pieces = rawPieces(text).flatMap((piece) =>
     wordLength(piece.text) > maxWordLen ? splitLongToken(piece, maxWordLen) : [piece],
   );
-  const tokens: Token[] = [];
-  let sentenceIdx = 0;
+  const tokens: WordToken[] = [];
+  let sentenceIdx = sentenceOffset;
 
   for (let index = 0; index < pieces.length; index += 1) {
     const piece = pieces[index];
@@ -128,16 +135,76 @@ export function tokenize(text: string, options: TokenizeOptions = {}): Token[] {
     const next = pieces[index + 1];
     const startsParagraph = previous === undefined || previous.paraIdx !== piece.paraIdx;
     const endsParagraph = next === undefined || next.paraIdx !== piece.paraIdx;
-    const token: Token = {
+    const token: WordToken = {
+      kind: 'word',
       text: piece.text,
       orp: orpIndexForText(piece.text),
       delayFactor: computeDelayFactor(piece.text, options.factors, { startsParagraph, endsParagraph }),
       sentenceIdx,
-      paraIdx: piece.paraIdx,
-      sourceIdx: piece.sourceIdx,
+      paraIdx: paraOffset + piece.paraIdx,
+      sourceIdx: sourceOffset + piece.sourceIdx,
     };
     tokens.push(token);
     if (endsSentence(piece.text)) sentenceIdx += 1;
+  }
+
+  const finalPiece = pieces.at(-1);
+  return {
+    tokens,
+    paraCount: finalPiece === undefined ? 0 : finalPiece.paraIdx + 1,
+    sentenceCount: sentenceIdx - sentenceOffset,
+  };
+}
+
+export function tokenize(input: string | readonly Block[], options: TokenizeOptions = {}): Token[] {
+  if (typeof input !== 'string' && !Array.isArray(input)) {
+    throw new TypeError('input must be a string or an array of blocks');
+  }
+  const maxWordLen = options.maxWordLen ?? DEFAULT_SETTINGS.maxWordLen;
+  if (!Number.isInteger(maxWordLen) || maxWordLen < 2) {
+    throw new RangeError('maxWordLen must be an integer of at least 2');
+  }
+
+  const blocks: readonly Block[] = typeof input === 'string' ? [{ kind: 'text', text: input }] : input;
+  const tokens: Token[] = [];
+  let paraIdx = 0;
+  let sentenceIdx = 0;
+  let sourceIdx = 0;
+  let codeBlockId = 0;
+
+  // SPEC §§2.1, 2.6: script gating belongs to the caller; code bypasses prose rules.
+  for (const block of blocks) {
+    if (block.kind === 'text') {
+      const result = wordTokens(block.text, options, paraIdx, sentenceIdx, sourceIdx);
+      tokens.push(...result.tokens);
+      paraIdx += result.paraCount;
+      sentenceIdx += result.sentenceCount;
+      sourceIdx += block.text.length + 2;
+      continue;
+    }
+
+    if (tokens.at(-1)?.sentenceIdx === sentenceIdx) sentenceIdx += 1;
+    const codeBlock: CodeBlock = block.lang === undefined
+      ? { id: codeBlockId, lines: block.lines }
+      : { id: codeBlockId, lines: block.lines, lang: block.lang };
+    let lineSourceIdx = sourceIdx;
+    for (const [lineIdx, line] of block.lines.entries()) {
+      tokens.push({
+        kind: 'code',
+        text: line,
+        delayFactor: options.factors?.codeLine ?? DEFAULT_SETTINGS.factors.codeLine,
+        sentenceIdx,
+        paraIdx,
+        sourceIdx: lineSourceIdx,
+        block: codeBlock,
+        lineIdx,
+      });
+      lineSourceIdx += line.length + 1;
+    }
+    codeBlockId += 1;
+    paraIdx += 1;
+    sentenceIdx += 1;
+    sourceIdx = lineSourceIdx + 1;
   }
 
   return tokens;

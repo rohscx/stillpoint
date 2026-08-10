@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Stillpoint code block fixture</title>
+  </head>
+  <body>
+    <article>
+      <h1>Code block reading</h1>
+      <p>This article introduces a compact example while providing enough surrounding prose for article extraction to select the complete content.</p>
+      <pre><code class="language-ts">const values = [1];
+
+  values.push(2); !!!
+console.log(values);</code></pre>
+      <p>After the example, ordinary prose resumes and explains why indentation and punctuation must remain exactly as the author wrote them.</p>
+    </article>
+    <script>
+      const nativeAttachShadow = Element.prototype.attachShadow;
+      Element.prototype.attachShadow = function captureClosedRoot(options) {
+        const root = nativeAttachShadow.call(this, options);
+        window.__stillpointShadow = root;
+        return root;
+      };
+    </script>
+    <script type="module">
+      import { mountReader } from '/dist/reader.js';
+
+      const blocks = [
+        { kind: 'text', text: 'Before code.' },
+        { kind: 'code', lang: 'ts', lines: ['const values = [1];', '', '  values.push(2); !!!', 'console.log(values);'] },
+        { kind: 'text', text: 'After code.' },
+      ];
+      window.__stillpointHandle = mountReader(blocks, { wpm: 1000 });
+    </script>
+  </body>
+</html>

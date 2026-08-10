@@ -1,4 +1,15 @@
-export interface Token {
+export type Block =
+  | { kind: 'text'; text: string }
+  | { kind: 'code'; lines: string[]; lang?: string };
+
+export interface CodeBlock {
+  id: number;
+  lines: readonly string[];
+  lang?: string;
+}
+
+export interface WordToken {
+  kind: 'word';
   text: string;
   orp: number;
   delayFactor: number;
@@ -7,6 +18,19 @@ export interface Token {
   sourceIdx: number;
 }
 
+export interface CodeToken {
+  kind: 'code';
+  text: string;
+  delayFactor: number;
+  sentenceIdx: number;
+  paraIdx: number;
+  sourceIdx: number;
+  block: CodeBlock;
+  lineIdx: number;
+}
+
+export type Token = WordToken | CodeToken;
+
 export interface TimingFactors {
   sentence: number;
   clause: number;
@@ -14,6 +38,7 @@ export interface TimingFactors {
   longWord: number;
   numeric: number;
   paraStart: number;
+  codeLine: number;
 }
 
 export interface ReaderPosition {
@@ -57,6 +82,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     longWord: 0.05,
     numeric: 1.4,
     paraStart: 1.2,
+    codeLine: 1,
   },
   position: null,
   autoRewindOnResume: true,

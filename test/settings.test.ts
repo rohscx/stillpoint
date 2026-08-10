@@ -46,6 +46,22 @@ describe('migrate', () => {
     expect(settings.position).toBeNull();
   });
 
+  it('defaults codeLine for settings written before v1.2', () => {
+    const { codeLine: _codeLine, ...v11Factors } = DEFAULT_SETTINGS.factors;
+    const settings = migrate({
+      version: 1,
+      wpm: 350,
+      fontSize: 36,
+      theme: 'auto',
+      maxWordLen: 13,
+      factors: v11Factors,
+      position: null,
+      autoRewindOnResume: true,
+      hideControlsWhilePlaying: true,
+    });
+    expect(settings.factors.codeLine).toBe(1);
+  });
+
   it('sanitizes an unknown future version', () => {
     const settings = migrate({ version: 99, wpm: 500, factors: { sentence: 3 } });
     expectValid(settings);
