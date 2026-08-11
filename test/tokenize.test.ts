@@ -134,3 +134,61 @@ describe('code block tokenization', () => {
     expect(token?.delayFactor).toBe(1.25);
   });
 });
+
+describe('breaking long tokens is planned, not greedy', () => {
+  const texts = (input: string): string[] => tokenize(input).map((token) => token.text);
+
+  it('packs a hyphenated atom together with the atoms after it', () => {
+    // Hyphenating the over-long atom in isolation stranded its tail, producing four chunks:
+    // '(parenth-' 'esised-' 'compound-' 'word)'.
+    expect(texts('(parenthesised-compound-word)')).toHaveLength(3);
+  });
+
+  it('prefers a seam break over a smaller chunk count', () => {
+    // Two chunks are reachable by breaking mid-word; three clean seams are worth more.
+    const chunks = texts('https://example.com/a/b');
+    expect(chunks).toEqual(['https://', 'example.', 'com/a/b']);
+    for (const chunk of chunks) expect(chunk.endsWith('-')).toBe(false);
+    expect(texts('C:\\Users\\name\\Documents')).toEqual(['C:\\Users\\', 'name\\', 'Documents']);
+  });
+
+  it('never strands fewer than three glyphs of a word it cuts', () => {
+    // 'parenthetical-' is 14 glyphs, so one mid-word break is forced; it must not place it
+    // so as to leave a lone 'l-' on the next chunk.
+    for (const input of [
+      '(a-very-long-parenthetical-aside-here)',
+      '[bracketed-and-hyphenated-thing]',
+      'ab-cdefghijklmnopqrstuvwxyz',
+    ]) {
+      const chunks = texts(input);
+      chunks.forEach((chunk, index) => {
+        const previous = chunks[index - 1];
+        if (previous === undefined || !previous.endsWith('-')) return;
+        // This chunk continues a cut word; its leading fragment must be substantial.
+        const fragment = chunk.split(/[^\p{L}\p{N}]/u)[0] ?? '';
+        expect(fragment.length).toBeGreaterThanOrEqual(3);
+      });
+    }
+  });
+
+  it('reconstructs the original exactly, by sourceIdx', () => {
+    for (const input of [
+      '(parenthesised-compound-word)',
+      'state-of-the-art-design',
+      'Rindfleischetikettierungsaufgabenübertragungsgesetz',
+      'https://example.com/a/b',
+      '[bracketed-and-hyphenated-thing]',
+    ]) {
+      const tokens = tokenize(input);
+      let rebuilt = '';
+      tokens.forEach((token, index) => {
+        const next = tokens[index + 1];
+        const slice = input.slice(token.sourceIdx, next === undefined ? input.length : next.sourceIdx);
+        const addedHyphen = token.text.endsWith('-') && !slice.endsWith('-');
+        expect(addedHyphen ? token.text.slice(0, -1) : token.text).toBe(slice);
+        rebuilt += slice;
+      });
+      expect(rebuilt).toBe(input);
+    }
+  });
+});

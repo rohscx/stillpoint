@@ -98,8 +98,24 @@ Rules, applied in order:
    Chunks produced this way get **no hyphen**: the seam already ends them, and a hyphen
    would falsely claim the word continues.
 
-   Only an atom that is itself longer than the limit gets hyphenated. This is what keeps
-   the hyphenator from walking past good break points:
+   **Choose the breaks in one pass, not atom by atom.** Hyphenating an over-long atom in
+   isolation strands its tail, because the fragments can never share a chunk with the atoms
+   after it — `(parenthesised-compound-word)` came out as four chunks where three suffice.
+   Plan over every glyph position at once, ranking candidate plans lexicographically:
+
+   1. **fewest mid-word breaks.** A clean seam is worth an extra chunk; this is the whole
+      point of breaking at seams rather than by length. Ranking chunk count above this
+      makes the reader break `https://example.com/a/b` mid-word to save one tick.
+   2. **fewest chunks.**
+   3. **evenest chunks**, by minimising the sum of squared lengths — target-free, so it
+      composes over suffixes without knowing the final count. A vowel/consonant boundary
+      breaks the remaining ties.
+
+   A mid-word break must leave at least **3 glyphs** of the word it cuts on each side.
+   Without that floor, the forced break inside a 14-glyph `parenthetical-` places itself so
+   as to strand a lone `l-` at the head of the next chunk.
+
+   This is what keeps the hyphenator from walking past good break points:
 
    | Token | Wrong (length-only) | Right (seam-first) |
    |---|---|---|

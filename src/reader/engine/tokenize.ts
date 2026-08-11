@@ -193,7 +193,126 @@ function packAtoms(atomList: readonly Piece[], maxWordLen: number): Piece[] {
   return [...atomList];
 }
 
+// Hyphenating an over-long atom on its own strands its tail: the fragments could never
+// share a chunk with the atoms that follow, so '(parenthesised-compound-word)' came out as
+// four chunks where three suffice. Packing every glyph position in one pass fixes that.
+// Breaks are ranked lexicographically: fewest chunks, then fewest mid-word breaks (so real
+// seams still win), then balance. SPEC §2.1 rule 3.
+const MAX_PLANNED_GLYPHS = 240;
+
+interface Plan {
+  hyphens: number;
+  chunks: number;
+  score: number;
+  next: number;
+}
+
+/**
+ * Chooses break points, ranked lexicographically:
+ *
+ * 1. fewest mid-word breaks — a real seam is worth an extra chunk, which is the whole
+ *    point of breaking at seams rather than by length;
+ * 2. fewest chunks;
+ * 3. evenest chunks, by minimising the sum of squared lengths — target-free, so it
+ *    composes over suffixes without knowing the final chunk count.
+ */
+function planSplit(
+  glyphs: readonly string[],
+  seamAt: readonly boolean[],
+  maxWordLen: number,
+): readonly number[] | undefined {
+  const total = glyphs.length;
+  const endsAtSeam = (at: number): boolean => at === total || seamAt[at] === true;
+
+  // A mid-word break must leave a readable stub on both sides of the word it cuts.
+  // Without this, 'parenthetical-' breaks so as to strand a lone 'l-' on the next chunk.
+  const MIN_STUB = 3;
+  const stubs = (at: number): boolean => {
+    let before = at;
+    while (before > 0 && seamAt[before] !== true) before -= 1;
+    let after = at;
+    while (after < total && seamAt[after] !== true) after += 1;
+    return at - before >= MIN_STUB && after - at >= MIN_STUB;
+  };
+
+  const plans = new Array<Plan | undefined>(total + 1).fill(undefined);
+  plans[total] = { hyphens: 0, chunks: 0, score: 0, next: total };
+
+  for (let from = total - 1; from >= 0; from -= 1) {
+    let winner: Plan | undefined;
+    for (let to = from + 1; to <= Math.min(total, from + maxWordLen); to += 1) {
+      const midWord = endsAtSeam(to) ? 0 : 1;
+      if (midWord === 1 && !stubs(to)) continue;
+      if (to - from + midWord > maxWordLen) continue;
+      const tail = plans[to];
+      if (tail === undefined) continue;
+      // A mid-word break off a vowel/consonant boundary reads worse; a tiebreak only.
+      const awkward = midWord === 1 && !isPreferredBoundary(glyphs, to) ? 0.3 : 0;
+      const candidate: Plan = {
+        hyphens: tail.hyphens + midWord,
+        chunks: tail.chunks + 1,
+        score: tail.score + ((to - from) ** 2) + awkward,
+        next: to,
+      };
+      const better = winner === undefined
+        || candidate.hyphens < winner.hyphens
+        || (candidate.hyphens === winner.hyphens && candidate.chunks < winner.chunks)
+        || (candidate.hyphens === winner.hyphens
+          && candidate.chunks === winner.chunks
+          && candidate.score < winner.score);
+      if (better) winner = candidate;
+    }
+    plans[from] = winner;
+  }
+
+  if (plans[0] === undefined) return undefined;
+  const ends: number[] = [];
+  for (let at = 0; at < total;) {
+    const step = plans[at];
+    if (step === undefined) return undefined;
+    ends.push(step.next);
+    at = step.next;
+  }
+  return ends;
+}
+
+function splitPlanned(piece: Piece, maxWordLen: number): Piece[] | undefined {
+  const glyphs = Array.from(piece.text);
+  if (glyphs.length > MAX_PLANNED_GLYPHS) return undefined;
+
+  const seamAt = new Array<boolean>(glyphs.length + 1).fill(false);
+  let boundary = 0;
+  for (const atom of atoms(piece)) {
+    boundary += Array.from(atom.text).length;
+    seamAt[boundary] = true;
+  }
+
+  const ends = planSplit(glyphs, seamAt, maxWordLen);
+  if (ends === undefined) return undefined;
+
+  const offsets: number[] = [0];
+  for (const glyph of glyphs) offsets.push((offsets.at(-1) ?? 0) + glyph.length);
+
+  const chunks: Piece[] = [];
+  let from = 0;
+  for (const to of ends) {
+    const needsHyphen = to !== glyphs.length && seamAt[to] !== true;
+    chunks.push({
+      text: glyphs.slice(from, to).join('') + (needsHyphen ? '-' : ''),
+      paraIdx: piece.paraIdx,
+      sourceIdx: piece.sourceIdx + (offsets[from] ?? 0),
+    });
+    from = to;
+  }
+  return chunks;
+}
+
 function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
+  const planned = splitPlanned(piece, maxWordLen);
+  if (planned !== undefined) return planned;
+
+  // Fallback for pathological tokens — a base64 blob with no whitespace would make the
+  // planner quadratic. Pack seams, hyphenate over-long atoms independently.
   const result: Piece[] = [];
   let seamAtoms: Piece[] = [];
   const flushSeams = (): void => {
@@ -201,7 +320,6 @@ function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
     seamAtoms = [];
   };
 
-  // SPEC §2.1 rule 3
   for (const atom of atoms(piece)) {
     if (Array.from(atom.text).length <= maxWordLen) {
       seamAtoms.push(atom);
