@@ -68,6 +68,24 @@ class FixtureElement {
     return false;
   }
 
+  cloneNode(deep = false): FixtureElement {
+    return new FixtureElement({
+      tag: this.tagName.toLocaleLowerCase(),
+      text: this.#text,
+      attrs: { ...this.#attrs },
+      children: deep ? this.children.map((child) => child.#fixtureNode()) : [],
+      hiddenByLayout: this.#hiddenByLayout,
+    });
+  }
+
+  remove(): void {
+    const siblings = this.parentElement?.children;
+    if (siblings === undefined) return;
+    const index = siblings.indexOf(this);
+    if (index >= 0) siblings.splice(index, 1);
+    this.parentElement = null;
+  }
+
   hasAttribute(name: string): boolean {
     return this.#attrs[name] !== undefined;
   }
@@ -96,8 +114,19 @@ class FixtureElement {
       if (item === 'article, main, section, div, body') return CONTAINER_NAMES.has(name);
       const attribute = item.match(/^\[([^=]+)="([^"]+)"\]$/u);
       if (attribute !== null) return this.#attrs[attribute[1] ?? ''] === attribute[2];
+      if (item.startsWith('.')) return (this.#attrs.class ?? '').split(/\s+/u).includes(item.slice(1));
       return name === item;
     });
+  }
+
+  #fixtureNode(): FixtureNode {
+    return {
+      tag: this.tagName.toLocaleLowerCase(),
+      text: this.#text,
+      attrs: { ...this.#attrs },
+      children: this.children.map((child) => child.#fixtureNode()),
+      hiddenByLayout: this.#hiddenByLayout,
+    };
   }
 }
 
@@ -108,6 +137,7 @@ function domFixture(bodyChildren: FixtureNode[]): Document {
       const matches = body.querySelectorAll(selector);
       return body.matches(selector) ? [body, ...matches] : matches;
     },
+    querySelector: (selector: string) => body.matches(selector) ? body : body.querySelector(selector),
     defaultView: {
       getComputedStyle: (element: FixtureElement) => ({ display: element.styleDisplay(), visibility: 'visible' }),
     },
@@ -150,6 +180,22 @@ describe('extractHeuristically', () => {
     expect(text).not.toContain('Hidden from accessibility');
     expect(text).not.toContain('Hidden by CSS');
     expect(text).not.toContain('zero client rectangle');
+  });
+
+  it('strips visually-hidden link suffixes from extracted blocks without changing the source', () => {
+    const hidden = '(opens in a new tab)';
+    const documentRoot = domFixture([{ tag: 'main', children: [
+      { tag: 'p', children: [
+        { tag: 'a', text: 'Framework' },
+        { tag: 'span', text: hidden, attrs: { class: 'sr-only' } },
+      ] },
+      { tag: 'p', text: 'Visible supporting prose keeps this content region useful to the extractor.' },
+    ] }]);
+    const blocks = extractHeuristically(documentRoot);
+    const text = blocks.map((block) => block.kind === 'text' ? block.text : block.lines.join('\n')).join('\n\n');
+    expect(text).toContain('Framework');
+    expect(text).not.toContain(hidden);
+    expect(documentRoot.querySelector('.sr-only')?.textContent).toContain(hidden);
   });
 
   it('returns preformatted code verbatim with language metadata', () => {

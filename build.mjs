@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { build } from 'esbuild';
@@ -13,6 +13,10 @@ const common = {
 
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
+
+const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+const manifest = JSON.parse(await readFile('manifest.json', 'utf8'));
+const builtManifest = `${JSON.stringify({ ...manifest, version: packageJson.version }, null, 2)}\n`;
 
 await Promise.all([
   build({
@@ -53,7 +57,7 @@ await Promise.all([
   }),
   build({ ...common, entryPoints: ['src/reader/extract/heuristic.ts'], outfile: 'dist/heuristic.js', format: 'esm' }),
   build({ ...common, entryPoints: ['src/popup/popup.ts'], outfile: 'dist/popup.js', format: 'esm' }),
-  copyFile('manifest.json', 'dist/manifest.json'),
+  writeFile('dist/manifest.json', builtManifest),
   copyFile('LICENSE', 'dist/LICENSE'),
   copyFile('NOTICE', 'dist/NOTICE'),
   copyFile('src/popup/popup.html', 'dist/popup.html'),

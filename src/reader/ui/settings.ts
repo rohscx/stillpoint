@@ -1,4 +1,5 @@
 import type { Settings } from '../../shared/types.js';
+import { extensionVersion } from '../../shared/version.js';
 
 export type ReaderSettingsPatch = Partial<Pick<Settings, 'wpm' | 'theme' | 'fontSize' | 'position'>>;
 
@@ -82,7 +83,12 @@ export class SettingsPanel {
     const footer = documentRoot.createElement('div');
     footer.className = 'sp-settings-actions';
     footer.append(resetPosition, close);
-    this.element.append(title, fields, this.#error, footer);
+    const version = documentRoot.createElement('p');
+    version.className = 'sp-version';
+    const loaded = extensionVersion();
+    if (loaded === undefined) version.hidden = true;
+    else version.textContent = `Stillpoint ${loaded}`;
+    this.element.append(title, fields, this.#error, version, footer);
     this.render(settings);
 
     this.#wpm.addEventListener('change', () => {

@@ -91,8 +91,24 @@ Rules, applied in order:
    `manufacture-` and `rs.`. Trailing punctuation still counts toward *display* length for
    the ORP lookup (§2.2); it just does not trigger a split.
 
-   Chunks are at most `MAX_WORD_LEN - 1` characters, and their sizes must differ by at
-   most one glyph before boundary adjustment — take `ceil(n / limit)` chunks and
+   **Break at punctuation seams before hyphenating.** A token that exceeds the limit is
+   first divided into *atoms* — a run of letters/digits plus any non-alphanumeric run that
+   follows it, except that opening brackets and quotes attach to what follows them. Atoms
+   are then packed into the fewest chunks that all fit the limit, balanced by length.
+   Chunks produced this way get **no hyphen**: the seam already ends them, and a hyphen
+   would falsely claim the word continues.
+
+   Only an atom that is itself longer than the limit gets hyphenated. This is what keeps
+   the hyphenator from walking past good break points:
+
+   | Token | Wrong (length-only) | Right (seam-first) |
+   |---|---|---|
+   | `Framework(opens` | `Framewo-` `rk(opens` | `Framework` `(opens` |
+   | `foo/bar/baz/qux` | `foo/bar/b-` `az/qux` | `foo/bar/` `baz/qux` |
+   | `state-of-the-art-design` | `state-of-th-` `e-art-design` | `state-of-the-` `art-design` |
+
+   When hyphenation *is* needed, chunks are at most `MAX_WORD_LEN - 1` characters, and
+   their sizes must differ by at most one glyph before boundary adjustment — take `ceil(n / limit)` chunks and
    distribute evenly, rather than taking the maximum each pass and leaving the remainder
    as the last chunk. The greedy approach produces runts: a two-glyph final chunk is
    harder to read than the unsplit word would have been. All chunks except the last get a
@@ -465,6 +481,13 @@ heuristic's block selector would never have matched — so filtering only in ste
 banner text through on exactly the pages Readability succeeds on. Never strip from the
 live document.
 
+**Strip visually-hidden text.** Screen-reader-only spans are not content: a link reading
+`<a>Framework</a><span class="sr-only">(opens in a new tab)</span>` streams as
+`Framework(opens` `in` `a` `new` `tab)`, which is noise the reader never asked for and the
+source of the worst tokenisation cases. Remove `.sr-only`, `.visually-hidden`,
+`.screen-reader-text`, `.a11y-hidden` and `.hidden-visually` alongside the §4 noise
+selectors, on the clone only.
+
 Strip from the result: sequences of ≥3 identical punctuation, footnote markers matching
 `\[\d+\]`, image credits, and leading/trailing whitespace per paragraph.
 
@@ -635,6 +658,21 @@ show a badge, don't fail silently.
 | M4 | Extraction | Selection + Readability + heuristic fallback + paste panel |
 | M5 | Polish | Themes, control fade, progress, auto-pause, error states, README |
 | M6 | Ship | Perf + visual suites green, store listing assets, packed zip |
+
+## 8a. Versioning
+
+`package.json` is the single source of truth. `manifest.json` in the repo carries a
+placeholder; `build.mjs` writes the real version into `dist/manifest.json` at build time,
+so the two can never drift — they did for two releases, shipping v1.2 features under
+`1.0.0`, which made it impossible to tell which build a browser had loaded.
+
+The version is shown in the options page and the in-reader settings panel, so it can be
+confirmed without opening `chrome://extensions`. `npm run audit:budget` fails if the built
+manifest version does not match `package.json`.
+
+Minor version for user-visible features, patch for fixes.
+
+---
 
 ## 9. Open decisions
 

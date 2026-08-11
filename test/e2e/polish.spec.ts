@@ -54,10 +54,14 @@ test('gates CJK acquisition and keeps paste available', async ({ page }) => {
 });
 
 test('settings round-trip through shared storage and fields suppress reader shortcuts', async ({ page }) => {
-  await page.goto('/test/e2e/fixture.html');
-  await page.evaluate(() => {
+  // The stub must exist before the fixture mounts: the settings panel reads the version at
+  // construction, which in a real extension is always after chrome is available.
+  await page.addInitScript(() => {
     let stored: unknown;
     (window as unknown as { chrome: unknown }).chrome = {
+      // Stubbed so the panel shows a real version here; outside an extension context there
+      // is no manifest and the line is hidden (SPEC §8a).
+      runtime: { getManifest: () => ({ version: '9.8.7' }) },
       storage: {
         sync: {
           get: async () => ({ settings: stored }),
@@ -66,11 +70,16 @@ test('settings round-trip through shared storage and fields suppress reader shor
       },
     };
   });
+  await page.goto('/test/e2e/fixture.html');
 
   await page.evaluate(() => {
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
     root.querySelector<HTMLButtonElement>('[aria-label="Settings"]')?.click();
   });
+  await expect.poll(() => page.evaluate(() => {
+    const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
+    return root.querySelector('.sp-settings .sp-version')?.textContent ?? '';
+  })).toBe('Stillpoint 9.8.7');
   await page.evaluate(() => {
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
     root.querySelector<HTMLInputElement>('.sp-settings input[aria-label="Reading speed"]')?.focus();

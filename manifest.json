@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stillpoint",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
   "background": { "service_worker": "sw.js", "type": "module" },

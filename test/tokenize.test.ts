@@ -54,6 +54,15 @@ describe('tokenize', () => {
 });
 
 describe('hyphenation decides on the word, not attached punctuation', () => {
+  it.each([
+    ['Framework(opens', ['Framework', '(opens']],
+    ['foo/bar/baz/qux', ['foo/bar/', 'baz/qux']],
+    ['state-of-the-art-design', ['state-of-the-', 'art-design']],
+    ['manufacturers.', ['manufacturers.']],
+  ] as const)('seam-packs %s exactly', (input, expected) => {
+    expect(tokenize(input).map((token) => token.text)).toEqual(expected);
+  });
+
   it('keeps "manufacturers." whole', () => {
     // 13 letters plus a period. Counting the period split it into 'manufacture-' + 'rs.'
     expect(tokenize('manufacturers.').map((t) => t.text)).toEqual(['manufacturers.']);
@@ -66,7 +75,8 @@ describe('hyphenation decides on the word, not attached punctuation', () => {
   });
 
   it('still splits a word that is genuinely too long', () => {
-    expect(tokenize('Rindfleischetikettierungsgesetz').length).toBeGreaterThan(1);
+    const chunks = tokenize('Rindfleischetikettierungsgesetz').map((token) => token.text);
+    expect(chunks).toEqual(['Rindfleisch-', 'etikettier-', 'ungsgesetz']);
   });
 
   it('never leaves a runt chunk', () => {
@@ -94,6 +104,11 @@ describe('hyphenation decides on the word, not attached punctuation', () => {
 });
 
 describe('code block tokenization', () => {
+  it('never seam-splits or hyphenates a code token', () => {
+    const text = 'Framework(opens/foo/bar/supercalifragilisticexpialidocious';
+    expect(tokenize([{ kind: 'code', lines: [text] }]).map((token) => token.text)).toEqual([text]);
+  });
+
   it('preserves every line verbatim as one token with shared block metadata', () => {
     const lines = ['function run() {', '', '  const value = supercalifragilisticexpialidocious;', 'x'.repeat(60), '}'];
     const tokens = tokenize([

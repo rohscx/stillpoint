@@ -19,6 +19,8 @@ interface Piece {
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 const RTL = /[\p{Script=Arabic}\p{Script=Hebrew}]/u;
 const LETTER = /^\p{L}$/u;
+const ALPHANUMERIC = /^[\p{L}\p{N}]$/u;
+const OPENING = /^(?:[<"'«‹“‘‚„]|\p{Ps}|\p{Pi})$/u;
 const VOWEL = /^[aeiouyà-öø-ÿāăąǎǟ-ǿȁ-ȳ]$/iu;
 
 export function detectScript(text: string): Script {
@@ -60,7 +62,7 @@ function chunkSizes(total: number, limit: number): number[] {
   return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
 }
 
-function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
+function hyphenateAtom(piece: Piece, maxWordLen: number): Piece[] {
   const glyphs = Array.from(piece.text);
   const chunks: Piece[] = [];
   // Every chunk but the last carries a trailing hyphen, so its content is one short.
@@ -95,6 +97,121 @@ function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
   }
 
   return chunks;
+}
+
+function atoms(piece: Piece): Piece[] {
+  const glyphs = Array.from(piece.text);
+  const result: Piece[] = [];
+  let index = 0;
+  let consumedCodeUnits = 0;
+
+  while (index < glyphs.length) {
+    const startCodeUnits = consumedCodeUnits;
+    let text = '';
+    while (index < glyphs.length && !ALPHANUMERIC.test(glyphs[index] ?? '')) {
+      const glyph = glyphs[index] ?? '';
+      text += glyph;
+      consumedCodeUnits += glyph.length;
+      index += 1;
+    }
+    while (index < glyphs.length && ALPHANUMERIC.test(glyphs[index] ?? '')) {
+      const glyph = glyphs[index] ?? '';
+      text += glyph;
+      consumedCodeUnits += glyph.length;
+      index += 1;
+    }
+    while (index < glyphs.length) {
+      const glyph = glyphs[index] ?? '';
+      const hasFollowingWord = glyphs.slice(index + 1).some((candidate) => ALPHANUMERIC.test(candidate));
+      if (OPENING.test(glyph) && hasFollowingWord) break;
+      if (ALPHANUMERIC.test(glyph)) break;
+      text += glyph;
+      consumedCodeUnits += glyph.length;
+      index += 1;
+    }
+    if (text !== '') {
+      result.push({ text, paraIdx: piece.paraIdx, sourceIdx: piece.sourceIdx + startCodeUnits });
+    }
+  }
+  return result;
+}
+
+interface Partition {
+  score: number;
+  ends: number[];
+}
+
+function balancedPartition(atomList: readonly Piece[], count: number, maxWordLen: number): number[] | undefined {
+  const lengths = atomList.map((atom) => Array.from(atom.text).length);
+  const target = lengths.reduce((sum, length) => sum + length, 0) / count;
+  const memo = new Map<string, Partition | undefined>();
+
+  function search(start: number, remaining: number): Partition | undefined {
+    const key = `${start}:${remaining}`;
+    if (memo.has(key)) return memo.get(key);
+    let best: Partition | undefined;
+    let length = 0;
+    const latestEnd = atomList.length - remaining + 1;
+    for (let end = start + 1; end <= latestEnd; end += 1) {
+      length += lengths[end - 1] ?? 0;
+      if (length > maxWordLen) break;
+      const tail = remaining === 1
+        ? (end === atomList.length ? { score: 0, ends: [] } : undefined)
+        : search(end, remaining - 1);
+      if (tail === undefined) continue;
+      const candidate = { score: ((length - target) ** 2) + tail.score, ends: [end, ...tail.ends] };
+      if (best === undefined || candidate.score < best.score) best = candidate;
+    }
+    memo.set(key, best);
+    return best;
+  }
+
+  return search(0, count)?.ends;
+}
+
+function packAtoms(atomList: readonly Piece[], maxWordLen: number): Piece[] {
+  if (atomList.length === 0) return [];
+  const total = atomList.reduce((sum, atom) => sum + Array.from(atom.text).length, 0);
+  const minimumCount = Math.ceil(total / maxWordLen);
+  for (let count = minimumCount; count <= atomList.length; count += 1) {
+    const ends = balancedPartition(atomList, count, maxWordLen);
+    if (ends === undefined) continue;
+    const chunks: Piece[] = [];
+    let start = 0;
+    for (const end of ends) {
+      const first = atomList[start];
+      if (first === undefined) break;
+      chunks.push({
+        text: atomList.slice(start, end).map((atom) => atom.text).join(''),
+        paraIdx: first.paraIdx,
+        sourceIdx: first.sourceIdx,
+      });
+      start = end;
+    }
+    return chunks;
+  }
+  return [...atomList];
+}
+
+function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
+  const result: Piece[] = [];
+  let seamAtoms: Piece[] = [];
+  const flushSeams = (): void => {
+    result.push(...packAtoms(seamAtoms, maxWordLen));
+    seamAtoms = [];
+  };
+
+  // SPEC §2.1 rule 3
+  for (const atom of atoms(piece)) {
+    if (Array.from(atom.text).length <= maxWordLen) {
+      seamAtoms.push(atom);
+      continue;
+    }
+    flushSeams();
+    result.push(...hyphenateAtom(atom, maxWordLen));
+  }
+  flushSeams();
+  return result;
 }
 
 function rawPieces(text: string): Piece[] {

@@ -1,6 +1,7 @@
 import { isStillpointMessage, type StillpointMessage } from '../shared/messages.js';
 import { loadSettings, saveSettings } from '../shared/settings.js';
 import type { Settings } from '../shared/types.js';
+import { extensionVersion } from '../shared/version.js';
 
 interface PopupTab {
   id?: number;
@@ -27,6 +28,10 @@ const wpm = requiredElement('wpm', HTMLInputElement);
 const wpmValue = requiredElement('wpm-value', HTMLOutputElement);
 const theme = requiredElement('theme', HTMLSelectElement);
 const fontSize = requiredElement('font-size', HTMLSelectElement);
+const version = requiredElement('version', HTMLParagraphElement);
+const loadedVersion = extensionVersion();
+if (loadedVersion === undefined) version.hidden = true;
+else version.textContent = `Stillpoint ${loadedVersion}`;
 
 function render(settings: Settings): void {
   wpm.value = settings.wpm.toString();

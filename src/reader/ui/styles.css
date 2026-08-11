@@ -389,6 +389,7 @@
 .sp-settings-actions .sp-button + .sp-button { margin-left: 8px; }
 
 .sp-settings-error { margin: 8px 0 0; }
+.sp-version { margin: 12px 0 0; font-size: 11px; }
 
 .sp-error {
   display: grid;

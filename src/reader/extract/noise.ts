@@ -10,10 +10,15 @@ export const NOISE_SELECTOR = [
   '[role="banner"]',
   '[role="complementary"]',
   '[aria-hidden="true"]',
+  '.sr-only',
+  '.visually-hidden',
+  '.screen-reader-text',
+  '.a11y-hidden',
+  '.hidden-visually',
 ].join(', ');
 
 /** Removes chrome from a *cloned* document. Never call this on the live page. */
-export function stripNoise(clone: Document): void {
+export function stripNoise(clone: ParentNode): void {
   for (const element of Array.from(clone.querySelectorAll(NOISE_SELECTOR))) {
     element.remove();
   }

@@ -1,4 +1,4 @@
-import { NOISE_SELECTOR } from './noise.js';
+import { NOISE_SELECTOR, stripNoise } from './noise.js';
 import { codeBlock } from './blocks.js';
 import type { Block } from '../../shared/types.js';
 
@@ -6,7 +6,9 @@ const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
 const CONTAINER_SELECTOR = 'article, main, section, div, body';
 
 function normalizedText(element: Element): string {
-  return (element.textContent ?? '').replace(/\s+/gu, ' ').trim();
+  const clone = element.cloneNode(true);
+  if ('querySelectorAll' in clone) stripNoise(clone as ParentNode);
+  return (clone.textContent ?? '').replace(/\s+/gu, ' ').trim();
 }
 
 function isExcluded(element: Element): boolean {

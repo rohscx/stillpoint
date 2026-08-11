@@ -30,6 +30,7 @@ const dependencies = Object.keys(packageJson.dependencies ?? {}).sort();
 const permissions = Array.isArray(manifest.permissions) ? [...manifest.permissions].sort() : [];
 
 const rows = [
+  ['Manifest version', manifest.version ?? '(missing)', packageJson.version, manifest.version === packageJson.version],
   ['Total unpacked extension size', formatBytes(totalBytes), `≤ ${formatBytes(250 * KIB)}`, totalBytes <= 250 * KIB],
   ['Injected runtime, gzipped', formatBytes(readerGzip), `≤ ${formatBytes(45 * KIB)}`, readerGzip <= 45 * KIB],
   ['Readability chunk, gzipped', formatBytes(extractGzip), `≤ ${formatBytes(30 * KIB)}`, extractGzip <= 30 * KIB],
