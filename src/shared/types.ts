@@ -47,7 +47,7 @@ export interface ReaderPosition {
 }
 
 export interface Settings {
-  version: 1;
+  version: 2;
   wpm: number;
   fontSize: 20 | 28 | 36 | 48;
   theme: 'auto' | 'light' | 'dark';
@@ -70,11 +70,11 @@ export interface TokenizeOptions {
 export type Script = 'latin' | 'cjk' | 'rtl';
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
-  version: 1,
+  version: 2,
   wpm: 350,
   fontSize: 36,
   theme: 'auto',
-  maxWordLen: 13,
+  maxWordLen: 18,
   factors: {
     sentence: 2.5,
     clause: 1.8,

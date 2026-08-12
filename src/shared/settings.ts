@@ -69,13 +69,20 @@ function position(value: unknown): ReaderPosition | null {
 // SPEC §5.3
 export function migrate(value: unknown): Settings {
   const raw = record(value) ?? {};
-  const rawMaxWordLen = finiteNumber(raw.maxWordLen, DEFAULT_SETTINGS.maxWordLen);
+  // maxWordLen has never been exposed in any UI, so a stored value can only be the old
+  // default. Version 1 shipped 13, which split ordinary words like 'infrastructure' at a
+  // place no dictionary allows; version 2 adopts the wider default rather than stranding
+  // existing installs on it.
+  const storedVersion = finiteNumber(raw.version, 0);
+  const rawMaxWordLen = storedVersion >= 2
+    ? finiteNumber(raw.maxWordLen, DEFAULT_SETTINGS.maxWordLen)
+    : DEFAULT_SETTINGS.maxWordLen;
   const theme = raw.theme === 'auto' || raw.theme === 'light' || raw.theme === 'dark'
     ? raw.theme
     : DEFAULT_SETTINGS.theme;
 
   return {
-    version: 1,
+    version: 2,
     wpm: clamp(finiteNumber(raw.wpm, DEFAULT_SETTINGS.wpm), 150, 1_000),
     fontSize: fontSize(raw.fontSize),
     theme,

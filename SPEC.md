@@ -86,7 +86,18 @@ Rules, applied in order:
    displayed, and it drives timing.
 3. **Hyphenation of long tokens.** A token is split when its **word length** — glyph
    count after stripping leading and trailing punctuation — exceeds `MAX_WORD_LEN`
-   (default 13). Measure the word, not the punctuation stuck to it: `manufacturers.` is
+   (default 18).
+
+   **The limit is a readability threshold, not a space constraint.** The frame is 32 `ch`
+   wide, so nothing forces a break; 13 came from the ~13-character eye-span figure behind
+   §1.1. In practice 13 split ordinary English words at places no dictionary permits —
+   `infrast-`/`ructure`, `superint-`/`elligence`, `represe-`/`ntation` — because the
+   planner can only rank break points by shape, not by syllable. A word of 14–18 glyphs
+   read whole is better than either of those halves. 18 keeps essentially all English
+   prose intact while still breaking genuine outliers.
+
+   Correct syllabification would need Liang/TeX patterns; until then, do not pretend the
+   vowel/consonant heuristic knows where syllables fall. It is a tiebreak, nothing more. Measure the word, not the punctuation stuck to it: `manufacturers.` is
    13 letters and a period, and counting the period split a perfectly readable word into
    `manufacture-` and `rs.`. Trailing punctuation still counts toward *display* length for
    the ORP lookup (§2.2); it just does not trigger a split.
@@ -559,11 +570,11 @@ Persisted in `chrome.storage.sync` under one key, `settings`, as a single object
 
 ```ts
 interface Settings {
-  version: 1;
+  version: 2;
   wpm: number;              // 150–1000, default 350
   fontSize: 20|28|36|48;    // default 36
   theme: 'auto'|'light'|'dark';
-  maxWordLen: number;       // default 13
+  maxWordLen: number;       // default 18
   factors: {                // §2.3 overrides
     sentence: number; clause: number; paragraph: number;
     longWord: number; numeric: number; paraStart: number;
@@ -576,6 +587,10 @@ interface Settings {
 
 Defaults must be applied by merge, so a settings object written by an older version never
 produces `undefined` at runtime.
+
+`version` exists so a default can be *changed*, not merely filled in. `maxWordLen` has
+never been exposed in any UI, so a stored 13 can only be the v1 default; migrating to
+version 2 adopts the new default rather than stranding existing installs on the old one.
 
 ---
 

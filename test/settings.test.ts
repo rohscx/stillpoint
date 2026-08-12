@@ -3,7 +3,7 @@ import { loadSettings, migrate, saveSettings, type SettingsStorageArea } from '.
 import { DEFAULT_SETTINGS, type Settings } from '../src/shared/types.js';
 
 function expectValid(settings: Settings): void {
-  expect(settings.version).toBe(1);
+  expect(settings.version).toBe(2);
   expect(settings.wpm).toBeGreaterThanOrEqual(150);
   expect(settings.wpm).toBeLessThanOrEqual(1_000);
   expect([20, 28, 36, 48]).toContain(settings.fontSize);
@@ -34,11 +34,11 @@ describe('migrate', () => {
 
   it('defaults a v1.0 settings object without position to null', () => {
     const settings = migrate({
-      version: 1,
+      version: 2,
       wpm: 425,
       fontSize: 36,
       theme: 'auto',
-      maxWordLen: 13,
+      maxWordLen: 18,
       factors: DEFAULT_SETTINGS.factors,
       autoRewindOnResume: true,
       hideControlsWhilePlaying: true,
@@ -49,11 +49,11 @@ describe('migrate', () => {
   it('defaults codeLine for settings written before v1.2', () => {
     const { codeLine: _codeLine, ...v11Factors } = DEFAULT_SETTINGS.factors;
     const settings = migrate({
-      version: 1,
+      version: 2,
       wpm: 350,
       fontSize: 36,
       theme: 'auto',
-      maxWordLen: 13,
+      maxWordLen: 18,
       factors: v11Factors,
       position: null,
       autoRewindOnResume: true,
@@ -65,7 +65,7 @@ describe('migrate', () => {
   it('sanitizes an unknown future version', () => {
     const settings = migrate({ version: 99, wpm: 500, factors: { sentence: 3 } });
     expectValid(settings);
-    expect(settings.version).toBe(1);
+    expect(settings.version).toBe(2);
     expect(settings.wpm).toBe(500);
     expect(settings.factors.sentence).toBe(3);
     expect(settings.factors.clause).toBe(DEFAULT_SETTINGS.factors.clause);
@@ -115,4 +115,17 @@ describe('settings storage', () => {
     });
     await expect(loadSettings(storage)).resolves.toEqual(saved);
   });
+});
+
+it('upgrades a v1 settings object off the old 13-glyph word limit', () => {
+  // maxWordLen was never exposed in any UI, so a stored 13 can only be the v1 default —
+  // the one that split 'infrastructure' into 'infrast-' and 'ructure'.
+  const upgraded = migrate({ version: 1, wpm: 400, maxWordLen: 13 });
+  expect(upgraded.maxWordLen).toBe(DEFAULT_SETTINGS.maxWordLen);
+  expect(upgraded.version).toBe(2);
+  expect(upgraded.wpm).toBe(400);
+});
+
+it('respects a deliberate maxWordLen once the object is v2', () => {
+  expect(migrate({ version: 2, maxWordLen: 11 }).maxWordLen).toBe(11);
 });

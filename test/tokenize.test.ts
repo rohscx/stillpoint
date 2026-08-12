@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { detectScript, tokenize, unsupportedScript } from '../src/reader/engine/tokenize.js';
 import { TOKENIZE_CASES } from './fixtures/tokenize-cases.js';
+import { DEFAULT_SETTINGS } from '../src/shared/types.js';
 
 describe('tokenize', () => {
   it.each(TOKENIZE_CASES)('handles $name', ({ input, expectedTexts, options, kind }) => {
@@ -10,7 +11,7 @@ describe('tokenize', () => {
 
     if (kind === 'long-word') {
       expect(tokens.length).toBeGreaterThan(1);
-      expect(tokens.every(({ text }) => Array.from(text).length <= 13)).toBe(true);
+      expect(tokens.every(({ text }) => Array.from(text).length <= DEFAULT_SETTINGS.maxWordLen)).toBe(true);
       expect(tokens.slice(0, -1).every(({ text }) => text.endsWith('-'))).toBe(true);
       expect(tokens.map(({ text }) => text.replace(/-$/u, '')).join('')).toBe(input);
     }
@@ -55,12 +56,21 @@ describe('tokenize', () => {
 
 describe('hyphenation decides on the word, not attached punctuation', () => {
   it.each([
-    ['Framework(opens', ['Framework', '(opens']],
-    ['foo/bar/baz/qux', ['foo/bar/', 'baz/qux']],
+    ['Framework(opens-in-a-new-tab)', ['Framework(opens-', 'in-a-new-tab)']],
+    ['foo/bar/baz/qux/quux/corge', ['foo/bar/baz/', 'qux/quux/corge']],
     ['state-of-the-art-design', ['state-of-the-', 'art-design']],
     ['manufacturers.', ['manufacturers.']],
   ] as const)('seam-packs %s exactly', (input, expected) => {
     expect(tokenize(input).map((token) => token.text)).toEqual(expected);
+  });
+
+  it.each([
+    'superintelligence', 'infrastructure', 'representation', 'implementation',
+    'Framework(opens', 'foo/bar/baz/qux', 'user@example.com',
+  ])('shows %s whole rather than breaking it wrongly', (input) => {
+    // A 13-glyph limit split ordinary words where no dictionary would allow it —
+    // 'infrast-' 'ructure', 'superint-' 'elligence'. SPEC §2.1 rule 3.
+    expect(tokenize(input).map((token) => token.text)).toEqual([input]);
   });
 
   it('keeps "manufacturers." whole', () => {
@@ -68,7 +78,7 @@ describe('hyphenation decides on the word, not attached punctuation', () => {
     expect(tokenize('manufacturers.').map((t) => t.text)).toEqual(['manufacturers.']);
   });
 
-  it('keeps a 13-letter word whole however it is punctuated', () => {
+  it('keeps a limit-length word whole however it is punctuated', () => {
     for (const punctuated of ['manufacturers,', '"manufacturers"', '(manufacturers)', 'manufacturers?!']) {
       expect(tokenize(punctuated)).toHaveLength(1);
     }
@@ -76,7 +86,7 @@ describe('hyphenation decides on the word, not attached punctuation', () => {
 
   it('still splits a word that is genuinely too long', () => {
     const chunks = tokenize('Rindfleischetikettierungsgesetz').map((token) => token.text);
-    expect(chunks).toEqual(['Rindfleisch-', 'etikettier-', 'ungsgesetz']);
+    expect(chunks).toEqual(['Rindfleischetik-', 'ettierungsgesetz']);
   });
 
   it('never leaves a runt chunk', () => {
@@ -141,15 +151,15 @@ describe('breaking long tokens is planned, not greedy', () => {
   it('packs a hyphenated atom together with the atoms after it', () => {
     // Hyphenating the over-long atom in isolation stranded its tail, producing four chunks:
     // '(parenth-' 'esised-' 'compound-' 'word)'.
-    expect(texts('(parenthesised-compound-word)')).toHaveLength(3);
+    expect(texts('(parenthesised-compound-word)')).toEqual(['(parenthesised-', 'compound-word)']);
   });
 
   it('prefers a seam break over a smaller chunk count', () => {
     // Two chunks are reachable by breaking mid-word; three clean seams are worth more.
     const chunks = texts('https://example.com/a/b');
-    expect(chunks).toEqual(['https://', 'example.', 'com/a/b']);
+    expect(chunks).toEqual(['https://', 'example.com/a/b']);
     for (const chunk of chunks) expect(chunk.endsWith('-')).toBe(false);
-    expect(texts('C:\\Users\\name\\Documents')).toEqual(['C:\\Users\\', 'name\\', 'Documents']);
+    expect(texts('C:\\Users\\name\\Documents')).toEqual(['C:\\Users\\', 'name\\Documents']);
   });
 
   it('never strands fewer than three glyphs of a word it cuts', () => {
