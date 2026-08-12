@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stillpoint",
+  "description": "Read any article one word at a time with a focused RSVP reader, precise ORP alignment, and no tracking.",
   "version": "0.0.0",
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
