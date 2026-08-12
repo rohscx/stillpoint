@@ -24,6 +24,13 @@ Stillpoint is an independent implementation of the RSVP/ORP reading technique an
 
 Productivity
 
+## Privacy policy URL
+
+https://github.com/rohscx/stillpoint/blob/main/store/privacy.md
+
+Verified to render. The dashboard requires a public URL, not pasted text, so this file's
+path must stay stable — moving or renaming it breaks the submitted listing.
+
 ## Single purpose
 
 Stillpoint's single purpose is to let a user read text they deliberately choose from the active page—or paste themselves—one word at a time in an RSVP reader with a fixed ORP alignment point.
