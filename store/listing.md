@@ -46,4 +46,14 @@ Stores reader preferences such as words per minute, font size, theme, and timing
 
 Adds “Read with Stillpoint” for selected text and “Read this page with Stillpoint” to the page context menu, giving users explicit ways to start the reader.
 
+### `web_accessible_resources` matching `<all_urls>`
+
+Two files are declared web-accessible: `reader.iife.js` and the lazily loaded
+`extract.js` / `heuristic.js`. The reader is injected into whichever tab the user invokes
+it on, and it loads its article-extraction code at that point rather than paying for it up
+front, so the resources cannot be restricted to a fixed list of sites. Both are ordinary
+files inside the package — nothing is fetched from a remote origin. The `<all_urls>` match
+pattern here grants no access to page content; that comes solely from `activeTab`, after a
+user action.
+
 The manifest requests no `host_permissions`. Stillpoint makes no network requests; page text is processed locally in the tab and is not transmitted by the extension.
