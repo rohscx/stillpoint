@@ -52,7 +52,10 @@ test('shows the whole block and steps its highlight line by line', async ({ page
   await page.keyboard.press('Space');
 });
 
-test('paragraph navigation skips code and prose presentation is restored', async ({ page }) => {
+test('paragraph navigation lands on the first code line and restores prose', async ({ page }) => {
+  await page.keyboard.press('PageDown');
+  expect((await codeState(page)).current).toBe(0);
+  expect((await codeState(page)).wordVisible).toBe(false);
   await page.keyboard.press('PageDown');
   const state = await codeState(page);
   expect(state.wordVisible).toBe(true);
@@ -64,6 +67,10 @@ test('paragraph navigation skips code and prose presentation is restored', async
     const root = (window as unknown as { __stillpointShadow: ShadowRoot }).__stillpointShadow;
     return root.querySelector('.sp-status')?.textContent ?? '';
   })).toContain('3 / 4 words');
+
+  await page.keyboard.press('PageUp');
+  expect((await codeState(page)).current).toBe(0);
+  expect((await codeState(page)).wordVisible).toBe(false);
 
   await page.keyboard.press('Home');
   await page.keyboard.press('ArrowRight');

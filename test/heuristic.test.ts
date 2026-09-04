@@ -13,6 +13,7 @@ const BLOCK_NAMES = new Set(['p', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h
 const CONTAINER_NAMES = new Set(['article', 'main', 'section', 'div', 'body']);
 
 class FixtureElement {
+  readonly nodeType = 1;
   readonly tagName: string;
   readonly children: FixtureElement[];
   readonly #text: string;
@@ -29,8 +30,12 @@ class FixtureElement {
     for (const child of this.children) child.parentElement = this;
   }
 
+  get childNodes(): Array<FixtureElement | { nodeType: number; textContent: string }> {
+    return [{ nodeType: 3, textContent: this.#text }, ...this.children];
+  }
+
   get textContent(): string {
-    return [this.#text, ...this.children.map((child) => child.textContent)].join(' ');
+    return [this.#text, ...this.children.map((child) => child.textContent)].join('');
   }
 
   querySelectorAll(selector: string): FixtureElement[] {
@@ -211,4 +216,18 @@ describe('extractHeuristically', () => {
       lang: 'ts',
     });
   });
+});
+
+it('#5 retains a parent instruction and classifies nested pre markup as code', () => {
+  const documentRoot = domFixture([{ tag: 'main', children: [
+    { tag: 'li', text: 'Parent instruction', children: [
+      { tag: 'ul', children: [{ tag: 'li', text: 'Child instruction' }] },
+    ] },
+    { tag: 'pre', children: [{ tag: 'div', text: 'values[1]; !!!' }] },
+  ] }]);
+  expect(extractHeuristically(documentRoot)).toEqual([
+    { kind: 'text', text: 'Parent instruction' },
+    { kind: 'text', text: 'Child instruction' },
+    { kind: 'code', lines: ['values[1]; !!!'] },
+  ]);
 });

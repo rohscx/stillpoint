@@ -39,6 +39,7 @@ export class Controls {
   readonly #slider: HTMLInputElement;
   readonly #wordTotal: number;
   #playing = false;
+  #hideWhilePlaying = true;
   #lastStatusUpdate = -Infinity;
   #pendingStatusTimer: number | undefined;
   #pendingIndex = 0;
@@ -127,6 +128,11 @@ export class Controls {
     }
   }
 
+  setHideWhilePlaying(hide: boolean): void {
+    this.#hideWhilePlaying = hide;
+    this.#show();
+  }
+
   setPlaying(playing: boolean): void {
     this.#playing = playing;
     this.#playButton.setAttribute('aria-label', playing ? 'Pause' : 'Play');
@@ -174,6 +180,7 @@ export class Controls {
 
   #scheduleIdle(): void {
     if (this.#idleTimer !== undefined) window.clearTimeout(this.#idleTimer);
+    if (!this.#hideWhilePlaying) return;
     // SPEC §3.4
     this.#idleTimer = window.setTimeout(() => {
       this.#idleTimer = undefined;

@@ -18,7 +18,7 @@ interface ChromeServiceWorker {
     onCommand: { addListener: (listener: (command: string) => void) => void };
   };
   contextMenus: {
-    onClicked: { addListener: (listener: (info: { menuItemId: string | number }, tab?: Tab) => void) => void };
+    onClicked: { addListener: (listener: (info: { menuItemId: string | number; selectionText?: string }, tab?: Tab) => void) => void };
     removeAll: (callback: () => void) => void;
     create: (properties: { id: string; title: string; contexts: string[] }) => void;
   };
@@ -29,7 +29,9 @@ interface ChromeServiceWorker {
   scripting: {
     executeScript: (details: {
       target: { tabId: number };
-      files: string[];
+      files?: string[];
+      func?: (selection: string) => void;
+      args?: string[];
       world: 'ISOLATED';
     }) => Promise<unknown>;
   };
@@ -58,8 +60,18 @@ async function clearInjectionError(tabId: number): Promise<void> {
   ]);
 }
 
-async function inject(tabId: number): Promise<void> {
+async function inject(tabId: number, selectionText?: string): Promise<void> {
   try {
+    await chromeApi().scripting.executeScript({
+      target: { tabId },
+      world: 'ISOLATED',
+      func: (selection: string) => {
+        const state = globalThis as typeof globalThis & { __stillpointSelection?: string };
+        if (selection === '') delete state.__stillpointSelection;
+        else state.__stillpointSelection = selection;
+      },
+      args: [selectionText ?? ''],
+    });
     await chromeApi().scripting.executeScript({
       target: { tabId },
       files: ['reader.iife.js'],
@@ -87,7 +99,7 @@ chromeApi().commands.onCommand.addListener((command) => {
 
 chromeApi().contextMenus.onClicked.addListener((info, tab) => {
   if ((info.menuItemId === SELECTION_MENU_ID || info.menuItemId === PAGE_MENU_ID) && tab?.id !== undefined) {
-    void inject(tab.id);
+    void inject(tab.id, info.menuItemId === SELECTION_MENU_ID ? info.selectionText : undefined);
   }
 });
 

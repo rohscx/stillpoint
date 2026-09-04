@@ -28,6 +28,7 @@ interface RuntimeMessageEvent {
 interface InjectionRuntime {
   chrome?: { runtime?: { onMessage?: RuntimeMessageEvent } };
   __stillpointInjectedReader__?: InjectionState;
+  __stillpointSelection?: string;
 }
 
 interface InjectionState {
@@ -37,6 +38,7 @@ interface InjectionState {
 }
 
 export interface ReaderHandle {
+  applySettings?: (settings: Settings) => void;
   close: () => void;
   setWpm: (wpm: number) => void;
   setFontSize: (fontSize: 20 | 28 | 36 | 48) => void;
@@ -80,12 +82,12 @@ function mountReaderInOverlay(
   let settings = initialSettings;
   const tokens = tokenize(blocks, { maxWordLen: settings.maxWordLen, factors: settings.factors });
   const scheduler = new Scheduler(tokens, { settings });
-  const redicle = new Redicle(document);
+  let drag: Drag | undefined;
+  const redicle = new Redicle(document, () => drag?.reclamp(true));
   overlay.elements.fullText.textContent = blocksText(blocks);
 
   let closed = false;
   let keyboard: Keyboard | undefined;
-  let drag: Drag | undefined;
   let settingsPanel: SettingsPanel | undefined;
   const unsubscribers: Array<() => void> = [];
 
@@ -113,11 +115,11 @@ function mountReaderInOverlay(
     let target = origin + direction;
     while (target >= 0 && target < tokens.length) {
       const candidate = tokens[target];
-      if (candidate?.kind === 'word' && candidate.paraIdx !== tokens[origin]?.paraIdx) break;
+      if (candidate !== undefined && candidate.paraIdx !== tokens[origin]?.paraIdx) break;
       target += direction;
     }
     const candidate = tokens[target];
-    if (candidate?.kind === 'word') {
+    if (candidate !== undefined) {
       while (target > 0 && tokens[target - 1]?.paraIdx === candidate.paraIdx) target -= 1;
       scheduler.seekWord(target - origin);
     } else scheduler.seekWord(0);
@@ -127,6 +129,7 @@ function mountReaderInOverlay(
   const applySettings = (next: Settings): void => {
     settings = next;
     scheduler.setWpm(next.wpm);
+    controls.setHideWhilePlaying(next.hideControlsWhilePlaying);
     overlay.setTheme(next.theme);
     overlay.setFontSize(next.fontSize);
     drag?.setPosition(next.position);
@@ -154,6 +157,7 @@ function mountReaderInOverlay(
     drag?.destroy();
     settingsPanel?.close();
     controls.destroy();
+    redicle.destroy();
     overlay.close();
     clearInjectionState();
   };
@@ -181,6 +185,7 @@ function mountReaderInOverlay(
     },
     close,
   });
+  controls.setHideWhilePlaying(settings.hideControlsWhilePlaying);
   settingsPanel = new SettingsPanel(document, settings, {
     load: () => loadSettings(),
     save: (patch: ReaderSettingsPatch) => saveSettings({ ...settings, ...patch }),
@@ -249,6 +254,7 @@ function mountReaderInOverlay(
 
   return {
     close,
+    applySettings,
     setWpm: (wpm) => applySettings({ ...settings, wpm }),
     setFontSize: (fontSize) => applySettings({ ...settings, fontSize }),
     setTheme: (theme) => applySettings({ ...settings, theme }),
@@ -346,16 +352,17 @@ function mountPasteFallback(
 
   return {
     close,
+    applySettings: (next) => { settings = next; reader?.applySettings?.(next); },
     setWpm: (wpm) => reader?.setWpm(wpm),
     setFontSize: (fontSize) => overlay.setFontSize(fontSize),
     setTheme: (theme) => overlay.setTheme(theme),
   };
 }
 
-async function acquireAndMount(settings: Settings): Promise<ReaderHandle> {
+async function acquireAndMount(settings: Settings, selection?: string): Promise<ReaderHandle> {
   let acquisition: Awaited<ReturnType<typeof acquireText>>;
   try {
-    acquisition = await acquireText();
+    acquisition = await acquireText(document, selection);
   } catch (error) {
     return mountError(settings, 'Text acquisition failed', error);
   }
@@ -377,6 +384,8 @@ export async function mountAcquiredReader(overrides: SettingsOverrides = {}): Pr
 
 async function runInjectedEntry(): Promise<void> {
   const runtime = injectionRuntime();
+  const selection = runtime.__stillpointSelection;
+  delete runtime.__stillpointSelection;
   const previous = runtime[INJECTION_PROPERTY];
   if (previous !== undefined) {
     previous.close();
@@ -394,7 +403,7 @@ async function runInjectedEntry(): Promise<void> {
 
   const settings = await loadSettings().catch(() => migrate(undefined));
   if (state.cancelled || runtime[INJECTION_PROPERTY] !== state) return;
-  const handle = await acquireAndMount(settings);
+  const handle = await acquireAndMount(settings, selection);
   if (state.cancelled || runtime[INJECTION_PROPERTY] !== state) {
     handle.close();
     return;
@@ -404,9 +413,7 @@ async function runInjectedEntry(): Promise<void> {
     if (!isStillpointMessage(message)) return;
     if (message.kind === 'close') handle.close();
     if (message.kind === 'settings-changed') {
-      handle.setWpm(message.settings.wpm);
-      handle.setFontSize(message.settings.fontSize);
-      handle.setTheme(message.settings.theme);
+      handle.applySettings?.(migrate(message.settings));
     }
   };
   messages?.addListener(onMessage);

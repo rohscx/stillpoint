@@ -144,6 +144,11 @@ Rules, applied in order:
    token and consumes its own tick.
 4. Compute `orp` per §2.2, `delayFactor` per §2.3.
 
+An individual prose token is limited to 65,536 glyphs. Larger tokens raise a `RangeError`
+and the reader shows its error panel. The planner considers at most 256 glyphs per chunk;
+custom `maxWordLen` values are constrained to 2–256. This bounds synchronous planning.
+If a custom limit cannot accommodate the three-glyph stub floor, retain that token whole.
+
 Edge cases that must be handled explicitly: URLs and email addresses (treat as a single
 token, hyphenate as above, do not split on `.` or `/`); numbers with separators
 (`1,234.56` is one token, no comma pause); ellipses (`…` and `...` take the
@@ -192,8 +197,8 @@ base_ms = 60000 / wpm
 ```
 
 The final duration is `base_ms * delayFactor`, where `delayFactor` is the product of the
-applicable factors below. All factors are user-tunable in Advanced settings; the defaults
-are what ship.
+applicable factors below. Factors are configurable through stored settings and are not
+surfaced in the v1.x UI. Each stored factor is clamped to 0.01–10; the defaults are what ship.
 
 | Condition (evaluated on the token) | Default factor |
 |---|---|
@@ -273,13 +278,15 @@ type Token = WordToken | CodeToken;
 - A blank line inside a block is a real token and consumes a tick; it is how code is
   paragraphed.
 - Every line of a block shares one `paraIdx`, so paragraph navigation treats the block as
-  a single unit and never lands the reader in the middle of it.
+  a single unit. PgDn/PgUp lands on the code block's first line, never in its middle,
+  and does not skip the block.
 
 **Line duration.** `base_ms × (1.1 + glyphs / 34)`, floored at 320 ms, times the
 `codeLine` factor (default 1.0, user-tunable). Longer lines get proportionally longer,
 and the floor keeps a run of short lines — closing braces, blank lines — from flickering
 past. The §2.3 punctuation factors do **not** apply: a trailing semicolon is not a
-sentence ending.
+sentence ending. Composed durations are capped at the signed 32-bit timer limit
+(2,147,483,647 ms), including exceptionally long code lines.
 
 **Word counts exclude code tokens.** The status line counts prose words (§3.4); a block
 reports its own position separately. Progress across the whole document still counts every
@@ -478,13 +485,22 @@ Collect `pre` (and `pre > code`) as `kind: 'code'`, split on newlines, and **app
 the cleaning rules below to it** — stripping repeated punctuation from source code
 corrupts it. Read the language from a `language-*` / `lang-*` class when present.
 
-A selection that contains no newlines is prose. Paste is always prose; a paste panel
-cannot distinguish code reliably and guessing wrong is worse than not trying.
+When a selection range intersects a `<pre>`, preserve the selected code lines as a
+`code` block, including partial first/last lines, and bypass `clean.ts` entirely for
+those lines. Selected text outside `<pre>` remains prose. Paste is always prose.
+A context-menu selection snapshot is used when the selected range is unavailable in the
+top frame (for example an iframe); without DOM context that snapshot is treated as prose.
+
+The paste panel belongs to the page document. Composed clipboard events can be read by
+page capture listeners even through a closed shadow root. The panel must warn users that
+the page can read pasted text and that sensitive text must not be pasted on untrusted
+pages. An extension-origin paste surface is deferred; event propagation suppression does
+not provide that isolation.
 
 Resolution order when the reader is invoked:
 
 1. **Non-empty selection** → use `window.getSelection().toString()`. Highest priority;
-   this is the common case and requires no extraction at all.
+   preserve range-intersecting `<pre>` content as described above; no lazy extraction chunk is needed.
 2. **Article extraction** → lazily `import()` the extraction chunk. Use
    `@mozilla/readability` against a `document.cloneNode(true)`. Take
    `article.textContent`, preserving paragraph breaks by first walking the parsed
@@ -727,3 +743,8 @@ Minor version for user-visible features, patch for fixes.
 - [speedread — terminal Spritz-alike (pasky)](https://github.com/pasky/speedread)
 - [OpenSpritz — JS bookmarklet implementation](https://github.com/pirate/OpenSpritz)
 - [Relocated virtual retinal image method and system — US 9,028,067 (Spritz)](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9028067)
+
+Known extraction limitation (v1.5): named noise and hidden block checks do not remove
+arbitrary stylesheet-hidden descendants from otherwise visible text. A future visibility
+pass must bound live style reads and prune only the clone; it must be validated against
+large and hostile DOMs before expanding extraction's live-tree work.

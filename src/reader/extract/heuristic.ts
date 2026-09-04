@@ -1,5 +1,5 @@
 import { NOISE_SELECTOR, stripNoise } from './noise.js';
-import { codeBlock } from './blocks.js';
+import { collectBlocks } from './blocks.js';
 import type { Block } from '../../shared/types.js';
 
 const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre';
@@ -44,7 +44,7 @@ export function extractHeuristically(documentRoot: Document): Block[] {
     if (isExcluded(element) || !isVisible(element, documentRoot)) return false;
     if (normalizedText(element) === '') return false;
     // Prefer the inner semantic block so a <blockquote><p>…</p></blockquote> is not duplicated.
-    return element.querySelector(BLOCK_SELECTOR) === null;
+    return element.parentElement?.closest(BLOCK_SELECTOR) == null;
   });
   if (blocks.length === 0) return [];
 
@@ -64,7 +64,15 @@ export function extractHeuristically(documentRoot: Document): Block[] {
   if (densest === undefined) return [];
   return blocks
     .filter((block) => block === densest || densest.contains(block))
-    .map((element): Block => element.tagName.toLocaleLowerCase() === 'pre'
-      ? codeBlock(element)
-      : { kind: 'text', text: normalizedText(element) });
+    .flatMap((element): Block[] => {
+      const clone = element.cloneNode(true) as Element;
+      const originals = Array.from(element.querySelectorAll(BLOCK_SELECTOR));
+      const copies = Array.from(clone.querySelectorAll(BLOCK_SELECTOR));
+      originals.forEach((original, index) => {
+        if (original.tagName.toLowerCase() !== 'pre' && original.closest('pre') !== null) return;
+        if (!isVisible(original, documentRoot)) copies[index]?.remove();
+      });
+      stripNoise(clone);
+      return collectBlocks(clone);
+    });
 }

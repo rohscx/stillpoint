@@ -26,8 +26,13 @@ export class PastePanel {
     this.#message.hidden = true;
     if (message !== undefined) this.setMessage(message);
 
+    const warning = documentRoot.createElement('p');
+    warning.className = 'sp-panel-message sp-paste-warning';
+    warning.textContent = 'This page can read text pasted here. Do not paste sensitive information on a page you do not trust.';
+    warning.id = 'sp-paste-warning';
     this.textarea = documentRoot.createElement('textarea');
     this.textarea.className = 'sp-paste-textarea';
+    this.textarea.setAttribute('aria-describedby', warning.id);
     this.textarea.rows = 10;
     this.textarea.required = true;
     this.textarea.placeholder = 'Paste text to read';
@@ -44,7 +49,7 @@ export class PastePanel {
     close.textContent = 'Close';
     close.addEventListener('click', onClose);
     actions.append(submit, close);
-    this.element.append(this.#title, this.#message, this.textarea, actions);
+    this.element.append(this.#title, this.#message, warning, this.textarea, actions);
 
     this.element.addEventListener('submit', (event) => {
       event.preventDefault();

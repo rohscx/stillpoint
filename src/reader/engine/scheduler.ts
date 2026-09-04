@@ -207,6 +207,7 @@ export class Scheduler {
 
   #pauseForSeek(): void {
     if (this.#playing) this.pause('manual');
+    this.#pausedAt = undefined;
   }
 
   #clampIndex(index: number): number {

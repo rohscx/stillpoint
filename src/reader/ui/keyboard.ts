@@ -34,14 +34,15 @@ export class Keyboard {
   }
 
   #handle(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && !event.repeat && this.#actions.closePanel()) {
+    if (event.key === 'Escape' && !event.repeat) {
+      if (!this.#actions.closePanel()) this.#actions.close();
       event.preventDefault();
       event.stopPropagation();
       return;
     }
     // Text-entry controls must receive literal §5.2 keys while the paste/settings UI has focus.
     const fieldHasFocus = (
-      event.target instanceof HTMLInputElement
+      (event.target instanceof HTMLInputElement && event.target.type !== 'range')
       || event.target instanceof HTMLTextAreaElement
       || event.target instanceof HTMLSelectElement
       || (event.target instanceof HTMLElement && event.target.isContentEditable)

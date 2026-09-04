@@ -8,6 +8,7 @@ export class Redicle {
   readonly #codeHeaderLabel: HTMLElement;
   readonly #codePosition: HTMLElement;
   readonly #codeView: HTMLElement;
+  readonly #resizeObserver: ResizeObserver;
   #codeBlockId: number | undefined;
   #codeLines: HTMLElement[] = [];
   #highlightedLine: HTMLElement | undefined;
@@ -15,7 +16,7 @@ export class Redicle {
   #visibleLineStart = 0;
   #visibleLineCount = 1;
 
-  constructor(documentRoot: Document) {
+  constructor(documentRoot: Document, onResize: () => void = () => undefined) {
     const redicle = documentRoot.createElement('div');
     redicle.className = 'sp-redicle';
     redicle.setAttribute('aria-hidden', 'true');
@@ -54,11 +55,38 @@ export class Redicle {
     this.#codeView = documentRoot.createElement('div');
     this.#codeView.className = 'sp-code-view';
     this.#codeView.addEventListener('scroll', () => {
-      this.#visibleLineStart = Math.floor(this.#codeView.scrollTop / this.#codeLineHeight);
+      this.#visibleLineStart = Math.ceil(this.#codeView.scrollTop / this.#codeLineHeight);
     });
     codePanel.append(codeHeader, this.#codeView);
     redicle.append(topRule, bottomRule, row, codePanel);
     this.element = redicle;
+    // SPEC §§1.3, 3.7: refresh measurements only on entry or resize, never on line ticks.
+    this.#resizeObserver = new ResizeObserver(() => {
+      this.#refreshGeometry();
+      onResize();
+    });
+    this.#resizeObserver.observe(redicle);
+    this.#resizeObserver.observe(this.#codeView);
+  }
+
+  destroy(): void {
+    this.#resizeObserver.disconnect();
+  }
+
+  #refreshGeometry(): void {
+    if (this.#codeBlockId === undefined) return;
+    this.#codeLineHeight = Math.max(1, this.#codeLines[0]?.getBoundingClientRect().height ?? 1);
+    this.#visibleLineStart = Math.ceil(this.#codeView.scrollTop / this.#codeLineHeight);
+    this.#visibleLineCount = Math.max(1, Math.floor(this.#codeView.clientHeight / this.#codeLineHeight));
+    if (this.#highlightedLine !== undefined) this.#ensureVisible(Number(this.#highlightedLine.dataset.line));
+  }
+
+  #ensureVisible(lineIdx: number): void {
+    if (lineIdx < this.#visibleLineStart || lineIdx >= this.#visibleLineStart + this.#visibleLineCount) {
+      this.#visibleLineStart = lineIdx < this.#visibleLineStart
+        ? lineIdx : lineIdx - this.#visibleLineCount + 1;
+      this.#codeView.scrollTop = this.#visibleLineStart * this.#codeLineHeight;
+    }
   }
 
   render(token: Token): void {
@@ -95,9 +123,7 @@ export class Redicle {
       this.#highlightedLine = undefined;
       this.#codeView.scrollTop = 0;
       this.#codeView.scrollLeft = 0;
-      this.#codeLineHeight = this.#codeLines[0]?.offsetHeight ?? 1;
-      this.#visibleLineStart = 0;
-      this.#visibleLineCount = Math.max(1, Math.floor(this.#codeView.clientHeight / this.#codeLineHeight));
+      this.#refreshGeometry();
     }
 
     const current = this.#codeLines[token.lineIdx];
@@ -107,12 +133,6 @@ export class Redicle {
     this.#highlightedLine = current;
     this.#codePosition.textContent = `line ${token.lineIdx + 1} / ${token.block.lines.length}`;
 
-    const visibleEnd = this.#visibleLineStart + this.#visibleLineCount;
-    if (token.lineIdx < this.#visibleLineStart || token.lineIdx >= visibleEnd) {
-      current.scrollIntoView({ block: 'nearest' });
-      this.#visibleLineStart = token.lineIdx < this.#visibleLineStart
-        ? token.lineIdx
-        : token.lineIdx - this.#visibleLineCount + 1;
-    }
+    this.#ensureVisible(token.lineIdx);
   }
 }

@@ -7,3 +7,5 @@ Stillpoint makes no network requests and includes no telemetry, accounts, or rem
 `chrome.storage.sync` stores only the user's reader settings (such as reading speed, font size, theme, and timing preferences). This storage and any browser-account synchronization of it are provided by Chromium; Stillpoint does not operate a server or transmit those settings itself. Page text, selections, reading position, reading history, and browsing history are not written to extension storage.
 
 The manifest requests no `host_permissions`. Access to page content is temporary and occurs only when the user invokes Stillpoint under `activeTab`.
+
+The paste panel is part of the current page document. The page can observe clipboard events and read text pasted into it, even though the reader uses a closed shadow root. Do not paste sensitive information on pages you do not trust. Stillpoint warns about this limitation before paste entry; it does not provide an extension-origin isolated paste surface.

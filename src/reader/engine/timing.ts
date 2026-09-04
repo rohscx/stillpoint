@@ -72,7 +72,7 @@ export function tokenDurationMs(token: Token, wpm: number): number {
   if (token.kind === 'code') {
     // SPEC §2.6
     const glyphs = Array.from(token.text).length;
-    return Math.max(320, (60_000 / wpm) * (1.1 + glyphs / 34)) * token.delayFactor;
+    return Math.min(2_147_483_647, Math.max(320, (60_000 / wpm) * (1.1 + glyphs / 34)) * token.delayFactor);
   }
-  return (60_000 / wpm) * token.delayFactor;
+  return Math.min(2_147_483_647, (60_000 / wpm) * token.delayFactor);
 }

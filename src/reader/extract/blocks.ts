@@ -20,3 +20,39 @@ export function codeBlock(element: Element): Block {
     ? { kind: 'code', lines }
     : { kind: 'code', lines, lang };
 }
+
+const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre, div, section, article, main, tr';
+
+// SPEC §4: preserve text on both sides of nested blocks; pre is atomic.
+export function collectBlocks(root: Node): Block[] {
+  const blocks: Block[] = [];
+  let text = '';
+  const flush = (): void => {
+    const normalized = text.replace(/\s+/gu, ' ').trim();
+    if (normalized !== '') blocks.push({ kind: 'text', text: normalized });
+    text = '';
+  };
+  const stack: Array<Node | null> = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (node === null) { flush(); continue; }
+    if (node === undefined) continue;
+    if (node.nodeType === 3) { text += node.textContent ?? ''; continue; }
+    if (node.nodeType === 1) {
+      const element = node as Element;
+      if (element.tagName.toLowerCase() === 'pre') {
+        flush();
+        blocks.push(codeBlock(element));
+        continue;
+      }
+      if (element.tagName.toLowerCase() === 'br') { text += '\n'; continue; }
+      if (element.matches(BLOCK_SELECTOR)) { flush(); stack.push(null); }
+    }
+    for (let i = node.childNodes.length - 1; i >= 0; i -= 1) {
+      const child = node.childNodes[i];
+      if (child !== undefined) stack.push(child);
+    }
+  }
+  flush();
+  return blocks;
+}

@@ -168,6 +168,8 @@
 }
 
 .sp-redicle.sp-code-mode {
+  display: flex;
+  flex-direction: column;
   height: auto;
   max-height: 60vh;
   cursor: grab;
@@ -179,11 +181,14 @@
 }
 
 .sp-code-mode .sp-code-panel {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   font-size: 0.38em;
 }
 
 .sp-code-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   gap: 2ch;
@@ -194,7 +199,7 @@
 }
 
 .sp-code-view {
-  max-height: calc(60vh - 2 * var(--sp-frame-padding-y) - 2em);
+  min-height: 0;
   overflow: auto;
   line-height: 1.45;
   white-space: pre;

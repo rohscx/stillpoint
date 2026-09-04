@@ -14,6 +14,7 @@ interface Piece {
   text: string;
   paraIdx: number;
   sourceIdx: number;
+  originalOffsets?: readonly number[];
 }
 
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
@@ -34,8 +35,11 @@ export function detectScript(text: string): Script {
 }
 
 export function unsupportedScript(text: string): Exclude<Script, 'latin'> | undefined {
-  const script = detectScript(text);
-  return script === 'latin' ? undefined : script;
+  for (const paragraph of text.split(/\r?\n[ \t]*\r?\n/u)) {
+    const script = detectScript(paragraph);
+    if (script !== 'latin') return script;
+  }
+  return undefined;
 }
 
 function isPreferredBoundary(glyphs: readonly string[], position: number): boolean {
@@ -54,151 +58,8 @@ function wordLength(text: string): number {
   return Array.from(text.replace(EDGE_PUNCTUATION, '')).length;
 }
 
-/** Chunk sizes that differ by at most one glyph, so a split never leaves a runt. */
-function chunkSizes(total: number, limit: number): number[] {
-  const count = Math.ceil(total / limit);
-  const base = Math.floor(total / count);
-  const remainder = total % count;
-  return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
-}
-
-function hyphenateAtom(piece: Piece, maxWordLen: number): Piece[] {
-  const glyphs = Array.from(piece.text);
-  const chunks: Piece[] = [];
-  // Every chunk but the last carries a trailing hyphen, so its content is one short.
-  const sizes = chunkSizes(glyphs.length, maxWordLen - 1);
-  let offset = 0;
-  let consumedCodeUnits = 0;
-
-  for (const [index, size] of sizes.entries()) {
-    const isLast = index === sizes.length - 1;
-    let end = offset + size;
-    if (!isLast) {
-      // Nudge onto a vowel/consonant boundary when one is within reach and the shift
-      // neither overruns the limit nor starves the following chunk.
-      for (const candidate of [end, end - 1, end + 1, end - 2]) {
-        const taken = candidate - offset;
-        const left = glyphs.length - candidate;
-        if (taken < 1 || taken > maxWordLen - 1 || left < 2) continue;
-        if (isPreferredBoundary(glyphs, candidate)) {
-          end = candidate;
-          break;
-        }
-      }
-    }
-    const content = glyphs.slice(offset, isLast ? glyphs.length : end).join('');
-    chunks.push({
-      text: isLast ? content : `${content}-`,
-      paraIdx: piece.paraIdx,
-      sourceIdx: piece.sourceIdx + consumedCodeUnits,
-    });
-    consumedCodeUnits += content.length;
-    offset = isLast ? glyphs.length : end;
-  }
-
-  return chunks;
-}
-
-function atoms(piece: Piece): Piece[] {
-  const glyphs = Array.from(piece.text);
-  const result: Piece[] = [];
-  let index = 0;
-  let consumedCodeUnits = 0;
-
-  while (index < glyphs.length) {
-    const startCodeUnits = consumedCodeUnits;
-    let text = '';
-    while (index < glyphs.length && !ALPHANUMERIC.test(glyphs[index] ?? '')) {
-      const glyph = glyphs[index] ?? '';
-      text += glyph;
-      consumedCodeUnits += glyph.length;
-      index += 1;
-    }
-    while (index < glyphs.length && ALPHANUMERIC.test(glyphs[index] ?? '')) {
-      const glyph = glyphs[index] ?? '';
-      text += glyph;
-      consumedCodeUnits += glyph.length;
-      index += 1;
-    }
-    while (index < glyphs.length) {
-      const glyph = glyphs[index] ?? '';
-      const hasFollowingWord = glyphs.slice(index + 1).some((candidate) => ALPHANUMERIC.test(candidate));
-      if (OPENING.test(glyph) && hasFollowingWord) break;
-      if (ALPHANUMERIC.test(glyph)) break;
-      text += glyph;
-      consumedCodeUnits += glyph.length;
-      index += 1;
-    }
-    if (text !== '') {
-      result.push({ text, paraIdx: piece.paraIdx, sourceIdx: piece.sourceIdx + startCodeUnits });
-    }
-  }
-  return result;
-}
-
-interface Partition {
-  score: number;
-  ends: number[];
-}
-
-function balancedPartition(atomList: readonly Piece[], count: number, maxWordLen: number): number[] | undefined {
-  const lengths = atomList.map((atom) => Array.from(atom.text).length);
-  const target = lengths.reduce((sum, length) => sum + length, 0) / count;
-  const memo = new Map<string, Partition | undefined>();
-
-  function search(start: number, remaining: number): Partition | undefined {
-    const key = `${start}:${remaining}`;
-    if (memo.has(key)) return memo.get(key);
-    let best: Partition | undefined;
-    let length = 0;
-    const latestEnd = atomList.length - remaining + 1;
-    for (let end = start + 1; end <= latestEnd; end += 1) {
-      length += lengths[end - 1] ?? 0;
-      if (length > maxWordLen) break;
-      const tail = remaining === 1
-        ? (end === atomList.length ? { score: 0, ends: [] } : undefined)
-        : search(end, remaining - 1);
-      if (tail === undefined) continue;
-      const candidate = { score: ((length - target) ** 2) + tail.score, ends: [end, ...tail.ends] };
-      if (best === undefined || candidate.score < best.score) best = candidate;
-    }
-    memo.set(key, best);
-    return best;
-  }
-
-  return search(0, count)?.ends;
-}
-
-function packAtoms(atomList: readonly Piece[], maxWordLen: number): Piece[] {
-  if (atomList.length === 0) return [];
-  const total = atomList.reduce((sum, atom) => sum + Array.from(atom.text).length, 0);
-  const minimumCount = Math.ceil(total / maxWordLen);
-  for (let count = minimumCount; count <= atomList.length; count += 1) {
-    const ends = balancedPartition(atomList, count, maxWordLen);
-    if (ends === undefined) continue;
-    const chunks: Piece[] = [];
-    let start = 0;
-    for (const end of ends) {
-      const first = atomList[start];
-      if (first === undefined) break;
-      chunks.push({
-        text: atomList.slice(start, end).map((atom) => atom.text).join(''),
-        paraIdx: first.paraIdx,
-        sourceIdx: first.sourceIdx,
-      });
-      start = end;
-    }
-    return chunks;
-  }
-  return [...atomList];
-}
-
-// Hyphenating an over-long atom on its own strands its tail: the fragments could never
-// share a chunk with the atoms that follow, so '(parenthesised-compound-word)' came out as
-// four chunks where three suffice. Packing every glyph position in one pass fixes that.
-// Breaks are ranked lexicographically: fewest chunks, then fewest mid-word breaks (so real
-// seams still win), then balance. SPEC §2.1 rule 3.
-const MAX_PLANNED_GLYPHS = 240;
+// SPEC §2.1: reject absurd individual tokens before planning; never block the page.
+const MAX_PLANNED_GLYPHS = 65_536;
 
 interface Plan {
   hyphens: number;
@@ -224,16 +85,17 @@ function planSplit(
   const total = glyphs.length;
   const endsAtSeam = (at: number): boolean => at === total || seamAt[at] === true;
 
-  // A mid-word break must leave a readable stub on both sides of the word it cuts.
-  // Without this, 'parenthetical-' breaks so as to strand a lone 'l-' on the next chunk.
-  const MIN_STUB = 3;
-  const stubs = (at: number): boolean => {
-    let before = at;
-    while (before > 0 && seamAt[before] !== true) before -= 1;
-    let after = at;
-    while (after < total && seamAt[after] !== true) after += 1;
-    return at - before >= MIN_STUB && after - at >= MIN_STUB;
-  };
+  const runStart = new Uint32Array(total + 1);
+  const runEnd = new Uint32Array(total + 1);
+  for (let i = 0; i < total; i += 1) {
+    runStart[i + 1] = ALPHANUMERIC.test(glyphs[i] ?? '') ? (runStart[i] ?? i) : i + 1;
+  }
+  runEnd[total] = total;
+  for (let i = total - 1; i >= 0; i -= 1) {
+    runEnd[i] = ALPHANUMERIC.test(glyphs[i] ?? '') ? (runEnd[i + 1] ?? i) : i;
+  }
+  const stubs = (at: number): boolean =>
+    at - (runStart[at] ?? at) >= 3 && (runEnd[at] ?? at) - at >= 3;
 
   const plans = new Array<Plan | undefined>(total + 1).fill(undefined);
   plans[total] = { hyphens: 0, chunks: 0, score: 0, next: total };
@@ -278,13 +140,22 @@ function planSplit(
 
 function splitPlanned(piece: Piece, maxWordLen: number): Piece[] | undefined {
   const glyphs = Array.from(piece.text);
-  if (glyphs.length > MAX_PLANNED_GLYPHS) return undefined;
 
   const seamAt = new Array<boolean>(glyphs.length + 1).fill(false);
-  let boundary = 0;
-  for (const atom of atoms(piece)) {
-    boundary += Array.from(atom.text).length;
-    seamAt[boundary] = true;
+  let lastWord = -1;
+  for (let i = 0; i < glyphs.length; i += 1) {
+    if (ALPHANUMERIC.test(glyphs[i] ?? '')) lastWord = i;
+  }
+  let index = 0;
+  while (index < glyphs.length) {
+    while (index < glyphs.length && !ALPHANUMERIC.test(glyphs[index] ?? '')) index += 1;
+    while (index < glyphs.length && ALPHANUMERIC.test(glyphs[index] ?? '')) index += 1;
+    while (index < glyphs.length) {
+      const glyph = glyphs[index] ?? '';
+      if (ALPHANUMERIC.test(glyph) || (OPENING.test(glyph) && index < lastWord)) break;
+      index += 1;
+    }
+    seamAt[index] = true;
   }
 
   const ends = planSplit(glyphs, seamAt, maxWordLen);
@@ -300,7 +171,7 @@ function splitPlanned(piece: Piece, maxWordLen: number): Piece[] | undefined {
     chunks.push({
       text: glyphs.slice(from, to).join('') + (needsHyphen ? '-' : ''),
       paraIdx: piece.paraIdx,
-      sourceIdx: piece.sourceIdx + (offsets[from] ?? 0),
+      sourceIdx: piece.sourceIdx + (piece.originalOffsets?.[offsets[from] ?? 0] ?? offsets[from] ?? 0),
     });
     from = to;
   }
@@ -311,25 +182,8 @@ function splitLongToken(piece: Piece, maxWordLen: number): Piece[] {
   const planned = splitPlanned(piece, maxWordLen);
   if (planned !== undefined) return planned;
 
-  // Fallback for pathological tokens — a base64 blob with no whitespace would make the
-  // planner quadratic. Pack seams, hyphenate over-long atoms independently.
-  const result: Piece[] = [];
-  let seamAtoms: Piece[] = [];
-  const flushSeams = (): void => {
-    result.push(...packAtoms(seamAtoms, maxWordLen));
-    seamAtoms = [];
-  };
-
-  for (const atom of atoms(piece)) {
-    if (Array.from(atom.text).length <= maxWordLen) {
-      seamAtoms.push(atom);
-      continue;
-    }
-    flushSeams();
-    result.push(...hyphenateAtom(atom, maxWordLen));
-  }
-  flushSeams();
-  return result;
+  // SPEC §2.1: tiny custom limits can make the three-glyph floor impossible.
+  return [piece];
 }
 
 function rawPieces(text: string): Piece[] {
@@ -343,7 +197,20 @@ function rawPieces(text: string): Piece[] {
     const between = text.slice(previousEnd, sourceIdx).replace(/\r\n?/gu, '\n');
     if (pieces.length > 0 && /\n[ \t\u00a0]*\n/u.test(between)) paraIdx += 1;
     const matched = match[0];
-    pieces.push({ text: matched.normalize('NFC'), paraIdx, sourceIdx });
+    if (Array.from(matched).length > MAX_PLANNED_GLYPHS) {
+      throw new RangeError('A token exceeds the 65,536-glyph limit');
+    }
+    const normalized = matched.normalize('NFC');
+    const piece: Piece = { text: normalized, paraIdx, sourceIdx };
+    if (normalized !== matched) {
+      const offsets: number[] = [];
+      for (const segment of new Intl.Segmenter().segment(matched)) {
+        const content = segment.segment.normalize('NFC');
+        for (let i = 0; i < content.length; i += 1) offsets.push(segment.index);
+      }
+      piece.originalOffsets = offsets;
+    }
+    pieces.push(piece);
     previousEnd = sourceIdx + matched.length;
   }
   return pieces;
@@ -396,8 +263,8 @@ export function tokenize(input: string | readonly Block[], options: TokenizeOpti
     throw new TypeError('input must be a string or an array of blocks');
   }
   const maxWordLen = options.maxWordLen ?? DEFAULT_SETTINGS.maxWordLen;
-  if (!Number.isInteger(maxWordLen) || maxWordLen < 2) {
-    throw new RangeError('maxWordLen must be an integer of at least 2');
+  if (!Number.isInteger(maxWordLen) || maxWordLen < 2 || maxWordLen > 256) {
+    throw new RangeError('maxWordLen must be an integer from 2 to 256');
   }
 
   const blocks: readonly Block[] = typeof input === 'string' ? [{ kind: 'text', text: input }] : input;

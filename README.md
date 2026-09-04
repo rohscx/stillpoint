@@ -34,7 +34,7 @@ is saved across reader sessions; use **Reset position** in settings to return to
 | `Alt+←` / `Alt+→` / `Alt+↑` / `Alt+↓` | Move the Redicle by 2% of the viewport |
 | `Alt+0` | Reset the Redicle position |
 
-If a page has no extractable article text, Stillpoint offers a paste field instead.
+If a page has no extractable article text, Stillpoint offers a paste field instead. The page can read pasted text; do not paste sensitive information on pages you do not trust.
 
 ## Known limitations
 

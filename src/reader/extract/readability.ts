@@ -1,20 +1,13 @@
 import { Readability } from '@mozilla/readability';
 import type { Block } from '../../shared/types.js';
-import { codeBlock } from './blocks.js';
+import { collectBlocks } from './blocks.js';
 import { stripNoise } from './noise.js';
-
-const ARTICLE_BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, pre, div, section, article, main, tr';
 
 function articleBlocks(content: string, documentRoot: Document): Block[] {
   const view = documentRoot.defaultView;
   if (view === null) return [];
   const parsed = new view.DOMParser().parseFromString(content, 'text/html');
-  return Array.from(parsed.body.querySelectorAll(ARTICLE_BLOCK_SELECTOR))
-    .filter((element) => element.querySelector(ARTICLE_BLOCK_SELECTOR) === null)
-    .map((element): Block => element.tagName.toLocaleLowerCase() === 'pre'
-      ? codeBlock(element)
-      : { kind: 'text', text: (element.textContent ?? '').replace(/\s+/gu, ' ').trim() })
-    .filter((block) => block.kind === 'code' || block.text !== '');
+  return collectBlocks(parsed.body);
 }
 
 // This file is the separate lazy bundle entry; never import it statically from reader.iife.js.

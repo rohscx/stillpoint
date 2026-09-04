@@ -1,3 +1,4 @@
+import { codeBlock, collectBlocks } from './blocks.js';
 import { cleanExtractedText } from './clean.js';
 import type { Block } from '../../shared/types.js';
 
@@ -42,6 +43,28 @@ export async function acquireText(
   selectedText: string = documentRoot.defaultView?.getSelection()?.toString() ?? '',
 ): Promise<AcquisitionResult> {
   if (selectedText.trim() !== '') {
+    const selection = documentRoot.defaultView?.getSelection();
+    if (selection !== null && selection !== undefined && selection.rangeCount > 0
+      && selection.toString() === selectedText) {
+      const range = selection.getRangeAt(0);
+      const ancestor = range.commonAncestorContainer;
+      const element = ancestor.nodeType === 1 ? ancestor as Element : ancestor.parentElement;
+      const pre = element?.closest('pre');
+      const fragment = range.cloneContents();
+      if (pre != null) {
+        const context = codeBlock(pre);
+        const wrapper = pre.cloneNode(false) as Element;
+        wrapper.append(fragment);
+        const selected = codeBlock(wrapper);
+        if (selected.kind === 'code' && context.kind === 'code' && context.lang !== undefined) {
+          selected.lang = context.lang;
+        }
+        return { source: 'selection', blocks: [selected] };
+      }
+      if (fragment.querySelector('pre') !== null) {
+        return { source: 'selection', blocks: cleanBlocks(collectBlocks(fragment)) };
+      }
+    }
     return { source: 'selection', blocks: [{ kind: 'text', text: cleanExtractedText(selectedText) }] };
   }
 

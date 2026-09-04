@@ -1,4 +1,6 @@
-import type { ReaderPosition, Settings, TimingFactors } from './types.js';
+import { DEFAULT_SETTINGS, type ReaderPosition, type Settings, type TimingFactors } from './types.js';
+
+const KNOWN_VERSIONS: ReadonlySet<number> = new Set([1, DEFAULT_SETTINGS.version]);
 
 export type StillpointMessage =
   | { kind: 'open' }
@@ -27,7 +29,8 @@ function isFactors(value: unknown): value is TimingFactors {
     && isPositiveNumber(factors.paragraph)
     && isPositiveNumber(factors.longWord)
     && isPositiveNumber(factors.numeric)
-    && isPositiveNumber(factors.paraStart);
+    && isPositiveNumber(factors.paraStart)
+    && isPositiveNumber(factors.codeLine);
 }
 
 function isPosition(value: unknown): value is ReaderPosition {
@@ -40,7 +43,8 @@ function isPosition(value: unknown): value is ReaderPosition {
 function isSettings(value: unknown): value is Settings {
   const settings = record(value);
   return settings !== undefined
-    && settings.version === 1
+    && isFiniteNumber(settings.version)
+    && KNOWN_VERSIONS.has(settings.version)
     && isFiniteNumber(settings.wpm)
     && settings.wpm >= 150
     && settings.wpm <= 1_000

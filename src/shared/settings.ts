@@ -24,7 +24,7 @@ function finiteNumber(value: unknown, fallback: number): number {
 
 function positiveNumber(value: unknown, fallback: number): number {
   const candidate = finiteNumber(value, fallback);
-  return candidate > 0 ? candidate : fallback;
+  return candidate > 0 ? clamp(candidate, 0.01, 10) : fallback;
 }
 
 function booleanValue(value: unknown, fallback: boolean): boolean {
@@ -82,11 +82,11 @@ export function migrate(value: unknown): Settings {
     : DEFAULT_SETTINGS.theme;
 
   return {
-    version: 2,
+    version: DEFAULT_SETTINGS.version,
     wpm: clamp(finiteNumber(raw.wpm, DEFAULT_SETTINGS.wpm), 150, 1_000),
     fontSize: fontSize(raw.fontSize),
     theme,
-    maxWordLen: rawMaxWordLen >= 2 ? Math.trunc(rawMaxWordLen) : DEFAULT_SETTINGS.maxWordLen,
+    maxWordLen: rawMaxWordLen >= 2 ? Math.min(256, Math.trunc(rawMaxWordLen)) : DEFAULT_SETTINGS.maxWordLen,
     factors: timingFactors(raw.factors),
     position: position(raw.position),
     autoRewindOnResume: booleanValue(raw.autoRewindOnResume, DEFAULT_SETTINGS.autoRewindOnResume),
