@@ -16,7 +16,7 @@ export interface SchedulerOptions {
   clock?: Partial<SchedulerClock>;
 }
 
-type TickListener = (token: Token, index: number) => void;
+type TickListener = (token: Token, index: number, dwellMs: number) => void;
 type PausedListener = (reason: PauseReason) => void;
 type FinishedListener = () => void;
 
@@ -167,10 +167,9 @@ export class Scheduler {
     const displayedIndex = this.#cursor;
     this.#cursor += 1;
     this.#lastDisplayedIndex = displayedIndex;
-    for (const listener of this.#tickListeners) listener(token, displayedIndex);
-
     const duration = tokenDurationMs(token, this.#settings.wpm);
     const scheduledDuration = useStartFloor ? Math.max(400, duration) : duration;
+    for (const listener of this.#tickListeners) listener(token, displayedIndex, scheduledDuration);
     this.#nextDeadline = useStartFloor
       ? this.#clock.now() + scheduledDuration
       : this.#nextDeadline + scheduledDuration;

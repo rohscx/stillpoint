@@ -1,0 +1,1185 @@
+<!doctype html>
+<!-- Embedded source snapshot, 2026-09-07. SHA-256:
+src/reader/engine/orp.ts: d7a637a3eb7eb9fc9ce02838ad20b2320b9ce76dc3b73cd343d4e41d7ebebe63
+src/reader/engine/timing.ts: aa32a52b9c30b97697538bd592583660f43feb44586dfb15b3a313464f930f77
+src/reader/engine/tokenize.ts: 7453d8c911552bcef72e017cff0bef3a97faadff42b46d38f5c796f6dae2ad6b
+src/reader/engine/scheduler.ts: f02fad9ac2fdc0d0f1b5c85d010b469493b231fe37bd01d416d393593cbbea5a
+src/shared/types.ts: dd33d0a33cd5c6f6aed2a7892228e0bd4b483f45a377754e11a42564d10a7dfb
+src/reader/ui/redicle.ts: 6882c2ee2b2f5a3d2789f798de20048ac38f392f2166498b242b7ad4574b43a3
+src/reader/ui/styles.css: 6239891b6e2715d0b3072fada582d03608c5f162ab139d488ef0b4741c561874
+No runtime build or imports. Experiment code follows the source bundle. -->
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stillpoint · fixation lab</title>
+<style>
+:root{color-scheme:light;font:16px/1.5 system-ui,sans-serif;color:#20252c;background:#f3f5f7}*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:auto;padding:24px}h1{font-size:25px;margin:0}p{margin:8px 0 16px}.muted{color:#526070;font-size:14px}.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px}button,input,select,textarea{font:inherit}button{padding:8px 14px;background:white;border:1px solid #8591a1;border-radius:5px;cursor:pointer}button.primary{background:#203c59;color:white}input[type=number]{width:85px}select,input[type=number]{padding:4px}label{font-size:14px}fieldset{border:1px solid #c3ccd6;border-radius:6px;background:#fff;padding:14px;min-width:0}legend{font-weight:650}fieldset label{display:block;margin:9px 0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}#stage{margin:16px -12px;display:block;height:300px}#elapsed{font:600 20px ui-monospace,monospace}#restBox{padding:16px;border:2px solid #526d89;background:#fff}textarea{width:100%;min-height:150px;padding:12px}#log{white-space:pre-wrap;font:13px/1.5 ui-monospace,monospace;max-height:220px;overflow:auto}details{margin-top:16px}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #568dc3} @media(max-width:760px){.grid{grid-template-columns:1fr}main{padding:16px}}
+</style>
+<main>
+<h1>Stillpoint · fixation lab</h1>
+<p class="muted">Local experiment. All mitigations start off. Try a baseline for 5–8 minutes, then one change at a time after a break. Stop if a setting feels unpleasant.</p>
+<div class="toolbar"><button id="play" class="primary">Play</button><button id="restart">Restart trial</button><button id="mark">Mark fading (F)</button><span id="elapsed">00:00</span><span id="continuous" class="muted"></span><label>WPM <input id="wpm" type="number" min="150" max="1000" value="350"></label><label>Size <select id="size"><option>20</option><option>28</option><option selected>36</option><option>48</option></select></label><label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label><label>Font <select id="font"><option value="default">Default stack</option><option value="jetbrains">JetBrains Mono Nerd Font Mono</option></select></label><span id="fontState" class="muted"></span></div>
+<div id="stage"></div>
+<div id="restBox" hidden><strong>Time for a look away.</strong> Pause and look at something about 20 feet away for 20 seconds, or take a longer break. <button id="restPause">Pause for a break</button> <button id="dismiss">Dismiss nudge</button></div>
+<p id="status" class="muted"></p><p id="motionStatus" class="muted"></p>
+<div class="grid">
+<fieldset><legend><label><input id="jitter" type="checkbox"> Coherent jitter</label></legend><label>Displacement radius (px) <input id="jitterPx" type="number" value="1" min="0.25" max="2" step="0.25"></label><label>Trigger <select id="jitterMode"><option value="timer">Independent timer</option><option value="tick">Every word tick</option><option value="dwell">Long word dwell only</option></select></label><label>Timer rate (Hz) <input id="jitterHz" type="number" value="1.5" min="0.5" max="2" step="0.1"></label><label>Dwell threshold (ms) <input id="dwellMs" type="number" value="350" min="100" max="1500" step="50"></label><p class="muted">Whole frame moves together. Tick mode follows WPM; it can exceed 2 Hz. Dwell mode moves once during sufficiently long words.</p></fieldset>
+<fieldset><legend><label><input id="blank" type="checkbox"> Micro-blank</label></legend><label>Boundary <select id="blankMode"><option value="sentence">Sentence ends</option><option value="word">Every word</option><option value="timer">Timer, at next word boundary</option></select></label><label>Blank (ms) <input id="blankMs" type="number" value="24" min="16" max="40" step="1"></label><label>Timer interval (seconds) <input id="blankEvery" type="number" value="5" min="1" max="30"></label><p class="muted">Hides words, rules and hashes; keeps the frame background. Adds time after the full word dwell. Brief blanks are refresh-rate dependent and may feel like flicker.</p></fieldset>
+<fieldset><legend>Static ORP cues</legend><label>Baseline saturation <input aria-label="Baseline saturation percentage" id="sat" type="number" value="100" min="0" max="100"> %</label><label><input id="neutral" type="checkbox"> Use text colour instead of red</label><label><input id="weight" type="checkbox"> Add weight <select id="weightValue" aria-label="Weight"><option>600</option><option selected>700</option><option>800</option></select></label><label><input id="underline" type="checkbox"> Underline <input aria-label="Underline thickness in pixels" id="linePx" type="number" value="2" min="1" max="4"> px</label><p class="muted">Baseline saturation is always applied; 100% is the shipped red. Neutral colour overrides saturation and colour cycles. Weight is drawn as a stroke inside the unchanged glyph box.</p></fieldset>
+<fieldset><legend>Colour cycles</legend><label><input id="hue" type="checkbox"> Slowly vary red hue</label><label>Hue radius (degrees) <input id="hueDeg" type="number" value="10" min="1" max="25"></label><label>Hue period (seconds) <input id="huePeriod" type="number" value="30" min="5" max="120"></label><label><input id="pulse" type="checkbox"> Saturation pulse</label><label>Trigger <select id="pulseTrigger"><option value="timer">Independent timer</option><option value="natural" selected>Natural pauses</option><option value="sentence">Sentence ends only</option><option value="long">Long words only</option></select></label><label>Long-word dwell (ms) <input id="pulseDwell" type="number" value="320" min="120" max="1500" step="10"></label><label>Min gap (seconds) <input id="pulseGap" type="number" value="6" min="0" max="120"></label><label>Every (seconds) <input id="pulseEvery" type="number" value="11" min="2" max="120"></label><label>For (seconds) <input id="pulseFor" type="number" value="1" min="0.1" max="20" step="0.1"></label><label>Pulse saturation <input aria-label="Pulse saturation percentage" id="pulseSat" type="number" value="100" min="0" max="100"> %</label><label>Pulse lightness boost <input aria-label="Pulse lightness boost" id="pulseLift" type="number" value="0" min="0" max="30"> %</label><p class="muted">On natural pauses the pulse fires where the reader already dwells — a sentence end or a long word — and lasts that word’s dwell, capped by For. Min gap stops dense punctuation firing it constantly; Every applies to timer mode only. The pulse briefly overrides baseline saturation, so a low baseline with a 100% pulse gives an occasional jolt of colour. Lightness boost makes the jolt stronger than saturation alone can. Neither cycle is a proven adaptation reset.</p></fieldset>
+<fieldset><legend><label><input id="drift" type="checkbox"> Slow column drift</label></legend><label>Frame-width radius (%) <input id="driftPct" type="number" value="1" min="0.25" max="2" step="0.25"></label><label>Full cycle (minutes) <input id="driftMinutes" type="number" value="4" min="1" max="10" step="0.5"></label><p class="muted">A smooth horizontal journey of the entire Redicle. Relative alignment stays fixed; absolute screen position does not.</p></fieldset>
+<fieldset><legend><label><input id="rest" type="checkbox"> Rest nudge</label></legend><label>After continuous minutes <input id="restMinutes" type="number" value="5" min="1" max="30"></label><p class="muted">An optional nudge, not an automatic pause. Pausing resets the continuous timer. Total active reading time excludes pauses and includes blanks.</p><button id="baseline">All mitigations off</button></fieldset>
+</div>
+<details><summary>Passage and trial notes</summary><p id="length" class="muted"></p><p class="muted">Original passage, repeated in full if needed to exceed 2,800 words. You can paste your own prose. Loading it starts a new trial.</p><textarea id="passage" aria-label="Reading passage"></textarea><button id="load">Load passage</button><p class="muted">Marks record elapsed time and settings in this page only. F marks fading without looking away; Space plays or pauses outside form controls. Changing a setting is logged, but does not reset elapsed time. Copy notes before closing.</p><pre id="log"></pre></details>
+</main>
+<script>
+(() => {
+  // src/shared/types.ts
+  var DEFAULT_SETTINGS = {
+    version: 2,
+    wpm: 350,
+    fontSize: 36,
+    theme: "auto",
+    maxWordLen: 18,
+    factors: {
+      sentence: 2.5,
+      clause: 1.8,
+      paragraph: 1.4,
+      longWord: 0.05,
+      numeric: 1.4,
+      paraStart: 1.2,
+      codeLine: 1
+    },
+    position: null,
+    autoRewindOnResume: true,
+    hideControlsWhilePlaying: true
+  };
+
+  // src/reader/engine/timing.ts
+  var CLOSING_PUNCTUATION = /["'”’»›)\]}）］｝]+$/u;
+  var DOTTED_ABBREVIATION = /^(?:[\p{L}]\.){2,}$/u;
+  var COMMON_ABBREVIATIONS = /* @__PURE__ */ new Set([
+    "dr.",
+    "mr.",
+    "mrs.",
+    "ms.",
+    "prof.",
+    "sr.",
+    "jr.",
+    "st.",
+    "vs.",
+    "etc.",
+    "e.g.",
+    "i.e.",
+    "a.m.",
+    "p.m."
+  ]);
+  function mergeSettings(overrides = {}) {
+    return {
+      ...DEFAULT_SETTINGS,
+      ...overrides,
+      factors: {
+        ...DEFAULT_SETTINGS.factors,
+        ...overrides.factors
+      }
+    };
+  }
+  function punctuationCandidate(text) {
+    return text.replace(CLOSING_PUNCTUATION, "");
+  }
+  function endsSentence(text) {
+    const candidate = punctuationCandidate(text);
+    const lower = candidate.toLocaleLowerCase();
+    if (COMMON_ABBREVIATIONS.has(lower) || DOTTED_ABBREVIATION.test(candidate)) return false;
+    return /(?:\.\.\.|[.!?…])$/u.test(candidate);
+  }
+  function endsClause(text) {
+    const candidate = punctuationCandidate(text);
+    return /[,;:—]$/u.test(candidate) && !/^[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/u.test(candidate);
+  }
+  function computeDelayFactor(text, factors = {}, context = {}) {
+    const merged = { ...DEFAULT_SETTINGS.factors, ...factors };
+    let result = 1;
+    if (endsSentence(text)) result *= merged.sentence;
+    else if (endsClause(text)) result *= merged.clause;
+    if (context.endsParagraph === true) result *= merged.paragraph;
+    const length = Array.from(text).length;
+    if (length > 8) result *= Math.min(1.5, 1 + (length - 8) * merged.longWord);
+    if (/\p{N}/u.test(text)) result *= merged.numeric;
+    if (context.startsParagraph === true) result *= merged.paraStart;
+    return result;
+  }
+  function tokenDurationMs(token, wpm) {
+    if (!Number.isFinite(wpm) || wpm <= 0) throw new RangeError("wpm must be a positive finite number");
+    if (token.kind === "code") {
+      const glyphs = Array.from(token.text).length;
+      return Math.min(2147483647, Math.max(320, 6e4 / wpm * (1.1 + glyphs / 34)) * token.delayFactor);
+    }
+    return Math.min(2147483647, 6e4 / wpm * token.delayFactor);
+  }
+
+  // src/reader/engine/scheduler.ts
+  function runtimeGlobals() {
+    return globalThis;
+  }
+  function defaultClock() {
+    const runtime = runtimeGlobals();
+    return {
+      now: () => runtime.performance.now(),
+      setTimer: (callback, delayMs) => runtime.setTimeout(callback, delayMs),
+      clearTimer: (handle) => runtime.clearTimeout(handle)
+    };
+  }
+  var Scheduler = class {
+    #tokens;
+    #clock;
+    #tickListeners = /* @__PURE__ */ new Set();
+    #pausedListeners = /* @__PURE__ */ new Set();
+    #finishedListeners = /* @__PURE__ */ new Set();
+    #settings;
+    #cursor = 0;
+    #lastDisplayedIndex = -1;
+    #playing = false;
+    #timer;
+    #nextDeadline = 0;
+    #pausedAt;
+    constructor(tokens, options = {}) {
+      this.#tokens = tokens;
+      this.#settings = mergeSettings(options.settings);
+      const defaults = defaultClock();
+      this.#clock = {
+        now: options.clock?.now ?? defaults.now,
+        setTimer: options.clock?.setTimer ?? defaults.setTimer,
+        clearTimer: options.clock?.clearTimer ?? defaults.clearTimer
+      };
+    }
+    get isPlaying() {
+      return this.#playing;
+    }
+    get wpm() {
+      return this.#settings.wpm;
+    }
+    get index() {
+      return this.#lastDisplayedIndex >= 0 ? this.#lastDisplayedIndex : this.#cursor;
+    }
+    on(event, listener) {
+      const listeners = event === "tick" ? this.#tickListeners : event === "paused" ? this.#pausedListeners : this.#finishedListeners;
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+    play() {
+      if (this.#playing) return;
+      const now = this.#clock.now();
+      if (this.#pausedAt !== void 0 && now - this.#pausedAt > 3e3 && this.#settings.autoRewindOnResume) {
+        this.#cursor = Math.max(0, this.#cursor - 3);
+      }
+      this.#pausedAt = void 0;
+      if (this.#cursor >= this.#tokens.length) this.#cursor = 0;
+      if (this.#tokens.length === 0) {
+        this.#emitFinished();
+        return;
+      }
+      this.#playing = true;
+      this.#displayAndSchedule(true);
+    }
+    pause(reason = "manual") {
+      if (!this.#playing) return;
+      this.#stopTimer();
+      this.#playing = false;
+      this.#pausedAt = this.#clock.now();
+      for (const listener of this.#pausedListeners) listener(reason);
+    }
+    seekWord(offset) {
+      this.#pauseForSeek();
+      const origin = this.#lastDisplayedIndex >= 0 ? this.#lastDisplayedIndex : this.#cursor;
+      this.#cursor = this.#clampIndex(origin + Math.trunc(offset));
+      this.#lastDisplayedIndex = this.#cursor;
+    }
+    seekSentence(offset) {
+      this.#seekGroup("sentenceIdx", offset);
+    }
+    seekParagraph(offset) {
+      this.#seekGroup("paraIdx", offset);
+    }
+    restart() {
+      this.#pauseForSeek();
+      this.#cursor = 0;
+      this.#lastDisplayedIndex = -1;
+    }
+    rewindSentence() {
+      this.#pauseForSeek();
+      const origin = this.#tokens[this.index];
+      if (origin === void 0) {
+        this.#cursor = 0;
+        return;
+      }
+      this.#cursor = this.#firstIndexOf("sentenceIdx", origin.sentenceIdx);
+      this.#lastDisplayedIndex = this.#cursor;
+    }
+    // Clamped rather than validated: the UI binds this to a repeatable keyboard step
+    // (SPEC §5.2), and holding the key at either end must be a no-op, not a throw.
+    setWpm(wpm) {
+      if (!Number.isFinite(wpm)) throw new TypeError("wpm must be a finite number");
+      this.#settings = { ...this.#settings, wpm: Math.min(1e3, Math.max(150, wpm)) };
+    }
+    #displayAndSchedule(useStartFloor) {
+      const token = this.#tokens[this.#cursor];
+      if (token === void 0) {
+        this.#playing = false;
+        this.#emitFinished();
+        return;
+      }
+      const displayedIndex = this.#cursor;
+      this.#cursor += 1;
+      this.#lastDisplayedIndex = displayedIndex;
+      for (const listener of this.#tickListeners) listener(token, displayedIndex);
+      const duration = tokenDurationMs(token, this.#settings.wpm);
+      const scheduledDuration = useStartFloor ? Math.max(400, duration) : duration;
+      this.#nextDeadline = useStartFloor ? this.#clock.now() + scheduledDuration : this.#nextDeadline + scheduledDuration;
+      this.#scheduleTimer();
+    }
+    #scheduleTimer() {
+      this.#timer = this.#clock.setTimer(
+        () => this.#onTimer(),
+        Math.max(0, this.#nextDeadline - this.#clock.now())
+      );
+    }
+    #onTimer() {
+      this.#timer = void 0;
+      if (!this.#playing) return;
+      const now = this.#clock.now();
+      const overshoot = now - this.#nextDeadline;
+      if (overshoot > 2e3) {
+        this.pause("stalled");
+        return;
+      }
+      const baseMs = 6e4 / this.#settings.wpm;
+      if (overshoot > baseMs) this.#nextDeadline = now;
+      this.#displayAndSchedule(false);
+    }
+    #stopTimer() {
+      if (this.#timer !== void 0) {
+        this.#clock.clearTimer(this.#timer);
+        this.#timer = void 0;
+      }
+    }
+    #pauseForSeek() {
+      if (this.#playing) this.pause("manual");
+      this.#pausedAt = void 0;
+    }
+    #clampIndex(index) {
+      return Math.min(Math.max(index, 0), Math.max(0, this.#tokens.length - 1));
+    }
+    #seekGroup(key, offset) {
+      this.#pauseForSeek();
+      const origin = this.#tokens[this.index];
+      if (origin === void 0) return;
+      const targetGroup = Math.max(0, origin[key] + Math.trunc(offset));
+      this.#cursor = this.#firstIndexOf(key, targetGroup);
+      this.#lastDisplayedIndex = this.#cursor;
+    }
+    #firstIndexOf(key, value) {
+      const found = this.#tokens.findIndex((token) => token[key] >= value);
+      return found < 0 ? Math.max(0, this.#tokens.length - 1) : found;
+    }
+    #emitFinished() {
+      for (const listener of this.#finishedListeners) listener();
+    }
+  };
+
+  // src/reader/engine/orp.ts
+  var LEADING_PUNCTUATION = /^["'“‘«‹([{（［｛]+/u;
+  function orpIndex(displayLength) {
+    if (!Number.isFinite(displayLength) || displayLength <= 1) return 0;
+    if (displayLength <= 5) return 1;
+    if (displayLength <= 9) return 2;
+    if (displayLength <= 13) return 3;
+    return 4;
+  }
+  function orpIndexForText(text) {
+    const glyphs = Array.from(text);
+    if (glyphs.length === 0) return 0;
+    const leading = text.match(LEADING_PUNCTUATION)?.[0];
+    const leadingLength = leading === void 0 ? 0 : Array.from(leading).length;
+    return Math.min(glyphs.length - 1, leadingLength + orpIndex(glyphs.length - leadingLength));
+  }
+
+  // src/reader/engine/tokenize.ts
+  var LETTER = /^\p{L}$/u;
+  var ALPHANUMERIC = /^[\p{L}\p{N}]$/u;
+  var OPENING = /^(?:[<"'«‹“‘‚„]|\p{Ps}|\p{Pi})$/u;
+  var VOWEL = /^[aeiouyà-öø-ÿāăąǎǟ-ǿȁ-ȳ]$/iu;
+  function isPreferredBoundary(glyphs, position) {
+    const left = glyphs[position - 1];
+    const right = glyphs[position];
+    if (left === void 0 || right === void 0 || !LETTER.test(left) || !LETTER.test(right)) return false;
+    return VOWEL.test(left) !== VOWEL.test(right);
+  }
+  var EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
+  function wordLength(text) {
+    return Array.from(text.replace(EDGE_PUNCTUATION, "")).length;
+  }
+  var MAX_PLANNED_GLYPHS = 65536;
+  function planSplit(glyphs, seamAt, maxWordLen) {
+    const total = glyphs.length;
+    const endsAtSeam = (at) => at === total || seamAt[at] === true;
+    const runStart = new Uint32Array(total + 1);
+    const runEnd = new Uint32Array(total + 1);
+    for (let i = 0; i < total; i += 1) {
+      runStart[i + 1] = ALPHANUMERIC.test(glyphs[i] ?? "") ? runStart[i] ?? i : i + 1;
+    }
+    runEnd[total] = total;
+    for (let i = total - 1; i >= 0; i -= 1) {
+      runEnd[i] = ALPHANUMERIC.test(glyphs[i] ?? "") ? runEnd[i + 1] ?? i : i;
+    }
+    const stubs = (at) => at - (runStart[at] ?? at) >= 3 && (runEnd[at] ?? at) - at >= 3;
+    const plans = new Array(total + 1).fill(void 0);
+    plans[total] = { hyphens: 0, chunks: 0, score: 0, next: total };
+    for (let from = total - 1; from >= 0; from -= 1) {
+      let winner;
+      for (let to = from + 1; to <= Math.min(total, from + maxWordLen); to += 1) {
+        const midWord = endsAtSeam(to) ? 0 : 1;
+        if (midWord === 1 && !stubs(to)) continue;
+        if (to - from + midWord > maxWordLen) continue;
+        const tail = plans[to];
+        if (tail === void 0) continue;
+        const awkward = midWord === 1 && !isPreferredBoundary(glyphs, to) ? 0.3 : 0;
+        const candidate = {
+          hyphens: tail.hyphens + midWord,
+          chunks: tail.chunks + 1,
+          score: tail.score + (to - from) ** 2 + awkward,
+          next: to
+        };
+        const better = winner === void 0 || candidate.hyphens < winner.hyphens || candidate.hyphens === winner.hyphens && candidate.chunks < winner.chunks || candidate.hyphens === winner.hyphens && candidate.chunks === winner.chunks && candidate.score < winner.score;
+        if (better) winner = candidate;
+      }
+      plans[from] = winner;
+    }
+    if (plans[0] === void 0) return void 0;
+    const ends = [];
+    for (let at = 0; at < total; ) {
+      const step = plans[at];
+      if (step === void 0) return void 0;
+      ends.push(step.next);
+      at = step.next;
+    }
+    return ends;
+  }
+  function splitPlanned(piece, maxWordLen) {
+    const glyphs = Array.from(piece.text);
+    const seamAt = new Array(glyphs.length + 1).fill(false);
+    let lastWord = -1;
+    for (let i = 0; i < glyphs.length; i += 1) {
+      if (ALPHANUMERIC.test(glyphs[i] ?? "")) lastWord = i;
+    }
+    let index = 0;
+    while (index < glyphs.length) {
+      while (index < glyphs.length && !ALPHANUMERIC.test(glyphs[index] ?? "")) index += 1;
+      while (index < glyphs.length && ALPHANUMERIC.test(glyphs[index] ?? "")) index += 1;
+      while (index < glyphs.length) {
+        const glyph = glyphs[index] ?? "";
+        if (ALPHANUMERIC.test(glyph) || OPENING.test(glyph) && index < lastWord) break;
+        index += 1;
+      }
+      seamAt[index] = true;
+    }
+    const ends = planSplit(glyphs, seamAt, maxWordLen);
+    if (ends === void 0) return void 0;
+    const offsets = [0];
+    for (const glyph of glyphs) offsets.push((offsets.at(-1) ?? 0) + glyph.length);
+    const chunks = [];
+    let from = 0;
+    for (const to of ends) {
+      const needsHyphen = to !== glyphs.length && seamAt[to] !== true;
+      chunks.push({
+        text: glyphs.slice(from, to).join("") + (needsHyphen ? "-" : ""),
+        paraIdx: piece.paraIdx,
+        sourceIdx: piece.sourceIdx + (piece.originalOffsets?.[offsets[from] ?? 0] ?? offsets[from] ?? 0)
+      });
+      from = to;
+    }
+    return chunks;
+  }
+  function splitLongToken(piece, maxWordLen) {
+    const planned = splitPlanned(piece, maxWordLen);
+    if (planned !== void 0) return planned;
+    return [piece];
+  }
+  function rawPieces(text) {
+    const pieces = [];
+    const matcher = /[^\s\u00a0]+/gu;
+    let previousEnd = 0;
+    let paraIdx = 0;
+    for (const match of text.matchAll(matcher)) {
+      const sourceIdx = match.index;
+      const between = text.slice(previousEnd, sourceIdx).replace(/\r\n?/gu, "\n");
+      if (pieces.length > 0 && /\n[ \t\u00a0]*\n/u.test(between)) paraIdx += 1;
+      const matched = match[0];
+      if (Array.from(matched).length > MAX_PLANNED_GLYPHS) {
+        throw new RangeError("A token exceeds the 65,536-glyph limit");
+      }
+      const normalized = matched.normalize("NFC");
+      const piece = { text: normalized, paraIdx, sourceIdx };
+      if (normalized !== matched) {
+        const offsets = [];
+        for (const segment of new Intl.Segmenter().segment(matched)) {
+          const content = segment.segment.normalize("NFC");
+          for (let i = 0; i < content.length; i += 1) offsets.push(segment.index);
+        }
+        piece.originalOffsets = offsets;
+      }
+      pieces.push(piece);
+      previousEnd = sourceIdx + matched.length;
+    }
+    return pieces;
+  }
+  function wordTokens(text, options, paraOffset, sentenceOffset, sourceOffset) {
+    const maxWordLen = options.maxWordLen ?? DEFAULT_SETTINGS.maxWordLen;
+    const pieces = rawPieces(text).flatMap(
+      (piece) => wordLength(piece.text) > maxWordLen ? splitLongToken(piece, maxWordLen) : [piece]
+    );
+    const tokens = [];
+    let sentenceIdx = sentenceOffset;
+    for (let index = 0; index < pieces.length; index += 1) {
+      const piece = pieces[index];
+      if (piece === void 0) continue;
+      const previous = pieces[index - 1];
+      const next = pieces[index + 1];
+      const startsParagraph = previous === void 0 || previous.paraIdx !== piece.paraIdx;
+      const endsParagraph = next === void 0 || next.paraIdx !== piece.paraIdx;
+      const token = {
+        kind: "word",
+        text: piece.text,
+        orp: orpIndexForText(piece.text),
+        delayFactor: computeDelayFactor(piece.text, options.factors, { startsParagraph, endsParagraph }),
+        sentenceIdx,
+        paraIdx: paraOffset + piece.paraIdx,
+        sourceIdx: sourceOffset + piece.sourceIdx
+      };
+      tokens.push(token);
+      if (endsSentence(piece.text)) sentenceIdx += 1;
+    }
+    const finalPiece = pieces.at(-1);
+    return {
+      tokens,
+      paraCount: finalPiece === void 0 ? 0 : finalPiece.paraIdx + 1,
+      sentenceCount: sentenceIdx - sentenceOffset
+    };
+  }
+  function tokenize(input, options = {}) {
+    if (typeof input !== "string" && !Array.isArray(input)) {
+      throw new TypeError("input must be a string or an array of blocks");
+    }
+    const maxWordLen = options.maxWordLen ?? DEFAULT_SETTINGS.maxWordLen;
+    if (!Number.isInteger(maxWordLen) || maxWordLen < 2 || maxWordLen > 256) {
+      throw new RangeError("maxWordLen must be an integer from 2 to 256");
+    }
+    const blocks = typeof input === "string" ? [{ kind: "text", text: input }] : input;
+    const tokens = [];
+    let paraIdx = 0;
+    let sentenceIdx = 0;
+    let sourceIdx = 0;
+    let codeBlockId = 0;
+    for (const block of blocks) {
+      if (block.kind === "text") {
+        const result = wordTokens(block.text, options, paraIdx, sentenceIdx, sourceIdx);
+        tokens.push(...result.tokens);
+        paraIdx += result.paraCount;
+        sentenceIdx += result.sentenceCount;
+        sourceIdx += block.text.length + 2;
+        continue;
+      }
+      if (tokens.at(-1)?.sentenceIdx === sentenceIdx) sentenceIdx += 1;
+      const codeBlock = block.lang === void 0 ? { id: codeBlockId, lines: block.lines } : { id: codeBlockId, lines: block.lines, lang: block.lang };
+      let lineSourceIdx = sourceIdx;
+      for (const [lineIdx, line] of block.lines.entries()) {
+        tokens.push({
+          kind: "code",
+          text: line,
+          delayFactor: options.factors?.codeLine ?? DEFAULT_SETTINGS.factors.codeLine,
+          sentenceIdx,
+          paraIdx,
+          sourceIdx: lineSourceIdx,
+          block: codeBlock,
+          lineIdx
+        });
+        lineSourceIdx += line.length + 1;
+      }
+      codeBlockId += 1;
+      paraIdx += 1;
+      sentenceIdx += 1;
+      sourceIdx = lineSourceIdx + 1;
+    }
+    return tokens;
+  }
+
+  // src/reader/ui/redicle.ts
+  var Redicle = class {
+    element;
+    #pre;
+    #orp;
+    #post;
+    #codeHeaderLabel;
+    #codePosition;
+    #codeView;
+    #resizeObserver;
+    #codeBlockId;
+    #codeLines = [];
+    #highlightedLine;
+    #codeLineHeight = 1;
+    #visibleLineStart = 0;
+    #visibleLineCount = 1;
+    constructor(documentRoot, onResize = () => void 0) {
+      const redicle = documentRoot.createElement("div");
+      redicle.className = "sp-redicle";
+      redicle.setAttribute("aria-hidden", "true");
+      const topRule = documentRoot.createElement("div");
+      topRule.className = "sp-rule sp-rule-top";
+      const bottomRule = documentRoot.createElement("div");
+      bottomRule.className = "sp-rule sp-rule-bottom";
+      const topHash = documentRoot.createElement("div");
+      topHash.className = "sp-hash sp-hash-top";
+      const bottomHash = documentRoot.createElement("div");
+      bottomHash.className = "sp-hash sp-hash-bottom";
+      topRule.append(topHash);
+      bottomRule.append(bottomHash);
+      const row = documentRoot.createElement("div");
+      row.className = "sp-word-row";
+      const word = documentRoot.createElement("div");
+      word.className = "sp-word";
+      this.#pre = documentRoot.createElement("span");
+      this.#pre.className = "sp-pre";
+      this.#orp = documentRoot.createElement("span");
+      this.#orp.className = "sp-orp";
+      this.#post = documentRoot.createElement("span");
+      this.#post.className = "sp-post";
+      word.append(this.#pre, this.#orp, this.#post);
+      row.append(word);
+      const codePanel = documentRoot.createElement("section");
+      codePanel.className = "sp-code-panel";
+      const codeHeader = documentRoot.createElement("header");
+      codeHeader.className = "sp-code-header";
+      this.#codeHeaderLabel = documentRoot.createElement("span");
+      this.#codePosition = documentRoot.createElement("span");
+      codeHeader.append(this.#codeHeaderLabel, this.#codePosition);
+      this.#codeView = documentRoot.createElement("div");
+      this.#codeView.className = "sp-code-view";
+      this.#codeView.addEventListener("scroll", () => {
+        this.#visibleLineStart = Math.ceil(this.#codeView.scrollTop / this.#codeLineHeight);
+      });
+      codePanel.append(codeHeader, this.#codeView);
+      redicle.append(topRule, bottomRule, row, codePanel);
+      this.element = redicle;
+      this.#resizeObserver = new ResizeObserver(() => {
+        this.#refreshGeometry();
+        onResize();
+      });
+      this.#resizeObserver.observe(redicle);
+      this.#resizeObserver.observe(this.#codeView);
+    }
+    destroy() {
+      this.#resizeObserver.disconnect();
+    }
+    #refreshGeometry() {
+      if (this.#codeBlockId === void 0) return;
+      this.#codeLineHeight = Math.max(1, this.#codeLines[0]?.getBoundingClientRect().height ?? 1);
+      this.#visibleLineStart = Math.ceil(this.#codeView.scrollTop / this.#codeLineHeight);
+      this.#visibleLineCount = Math.max(1, Math.floor(this.#codeView.clientHeight / this.#codeLineHeight));
+      if (this.#highlightedLine !== void 0) this.#ensureVisible(Number(this.#highlightedLine.dataset.line));
+    }
+    #ensureVisible(lineIdx) {
+      if (lineIdx < this.#visibleLineStart || lineIdx >= this.#visibleLineStart + this.#visibleLineCount) {
+        this.#visibleLineStart = lineIdx < this.#visibleLineStart ? lineIdx : lineIdx - this.#visibleLineCount + 1;
+        this.#codeView.scrollTop = this.#visibleLineStart * this.#codeLineHeight;
+      }
+    }
+    render(token) {
+      if (token.kind === "code") this.#renderCode(token);
+      else this.#renderWord(token);
+    }
+    #renderWord(token) {
+      this.element.classList.remove("sp-code-mode");
+      this.#codeBlockId = void 0;
+      this.#highlightedLine = void 0;
+      const glyphs = Array.from(token.text);
+      this.#pre.textContent = glyphs.slice(0, token.orp).join("");
+      this.#orp.textContent = glyphs[token.orp] ?? "";
+      this.#post.textContent = glyphs.slice(token.orp + 1).join("");
+    }
+    #renderCode(token) {
+      this.element.classList.add("sp-code-mode");
+      if (this.#codeBlockId !== token.block.id) {
+        this.#codeLines = token.block.lines.map((line, index) => {
+          const element = this.element.ownerDocument.createElement("div");
+          element.className = "sp-code-line";
+          element.dataset.line = index.toString();
+          element.textContent = line;
+          return element;
+        });
+        this.#codeView.replaceChildren(...this.#codeLines);
+        const language = token.block.lang ?? "code";
+        this.#codeHeaderLabel.textContent = `${language} \xB7 ${token.block.lines.length} lines`;
+        this.#codeBlockId = token.block.id;
+        this.#highlightedLine = void 0;
+        this.#codeView.scrollTop = 0;
+        this.#codeView.scrollLeft = 0;
+        this.#refreshGeometry();
+      }
+      const current = this.#codeLines[token.lineIdx];
+      if (current === void 0) return;
+      this.#highlightedLine?.classList.remove("sp-code-current");
+      current.classList.add("sp-code-current");
+      this.#highlightedLine = current;
+      this.#codePosition.textContent = `line ${token.lineIdx + 1} / ${token.block.lines.length}`;
+      this.#ensureVisible(token.lineIdx);
+    }
+  };
+
+  // ../../../../../../private/tmp/fixation-entry.ts
+  window.Stillpoint = { Scheduler, tokenize, tokenDurationMs, endsSentence, Redicle };
+})();
+
+</script>
+<script>
+const $=id=>document.getElementById(id);
+const {Scheduler,tokenize,tokenDurationMs,endsSentence,Redicle}=window.Stillpoint;
+const shadow=$('stage').attachShadow({mode:'open'});
+shadow.innerHTML=`<style>:host {
+  --sp-bg: #ffffff;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-scrim: rgba(244, 242, 239, 0.985);
+  --sp-ui: #8a8783;
+  --sp-font-size: 36px;
+  --sp-font-stack: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sp-line-height: 1.2;
+  --sp-frame-width: clamp(320px, 32ch, 720px);
+  --sp-frame-height: 6.6em;
+  --sp-frame-radius: 4px;
+  --sp-frame-padding-y: 0.75em;
+  --sp-frame-padding-x: 1ch;
+  --sp-rule-width: 1px;
+  --sp-hash-length: 0.45em;
+  --sp-orp-column: 35%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --sp-bg: #1b1e23;
+    --sp-fg: #e8e6e3;
+    --sp-orp: #ff4a4a;
+    --sp-rule: #3a3d42;
+    --sp-scrim: rgba(10, 11, 13, 0.985);
+    --sp-ui: #6e7278;
+  }
+}
+
+:host([data-theme='light']) {
+  --sp-bg: #ffffff;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-scrim: rgba(244, 242, 239, 0.985);
+  --sp-ui: #8a8783;
+}
+
+:host([data-theme='dark']) {
+  --sp-bg: #1b1e23;
+  --sp-fg: #e8e6e3;
+  --sp-orp: #ff4a4a;
+  --sp-rule: #3a3d42;
+  --sp-scrim: rgba(10, 11, 13, 0.985);
+  --sp-ui: #6e7278;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.sp-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: var(--sp-fg);
+  background: var(--sp-scrim);
+  font-family: var(--sp-font-stack);
+  font-size: var(--sp-font-size);
+  font-variant-ligatures: none;
+  font-kerning: none;
+  font-feature-settings: "tnum";
+  line-height: var(--sp-line-height);
+}
+
+.sp-reader {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  width: var(--sp-frame-width);
+  transform: translate(-50%, -50%);
+}
+
+.sp-reader-chrome {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+}
+
+.sp-redicle {
+  position: relative;
+  width: 100%;
+  height: var(--sp-frame-height);
+  padding: var(--sp-frame-padding-y) var(--sp-frame-padding-x);
+  overflow: hidden;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  background: var(--sp-bg);
+  font-weight: 400;
+  letter-spacing: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sp-redicle.sp-dragging { cursor: grabbing; }
+
+.sp-rule {
+  position: absolute;
+  right: var(--sp-frame-padding-x);
+  left: var(--sp-frame-padding-x);
+  height: var(--sp-rule-width);
+  background: var(--sp-rule);
+}
+
+.sp-rule-top {
+  top: var(--sp-frame-padding-y);
+}
+
+.sp-rule-bottom {
+  bottom: var(--sp-frame-padding-y);
+}
+
+.sp-hash {
+  position: absolute;
+  left: var(--sp-orp-column);
+  width: var(--sp-rule-width);
+  height: var(--sp-hash-length);
+  transform: translateX(-50%);
+  background: var(--sp-rule);
+}
+
+.sp-hash-top {
+  top: 0;
+}
+
+.sp-hash-bottom {
+  bottom: 0;
+}
+
+.sp-word-row {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-frame-padding-x);
+  left: var(--sp-frame-padding-x);
+  height: 1.2em;
+  transform: translateY(-50%);
+}
+
+.sp-word {
+  position: absolute;
+  left: var(--sp-orp-column);
+  transform: translateX(-0.5ch);
+  white-space: pre;
+}
+
+.sp-pre {
+  position: absolute;
+  right: 100%;
+}
+
+.sp-orp {
+  color: var(--sp-orp);
+}
+
+.sp-post {
+  position: absolute;
+  left: 100%;
+}
+
+.sp-code-panel {
+  display: none;
+}
+
+.sp-redicle.sp-code-mode {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-height: 60vh;
+  cursor: grab;
+}
+
+.sp-code-mode .sp-rule,
+.sp-code-mode .sp-word-row {
+  display: none;
+}
+
+.sp-code-mode .sp-code-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: 0.38em;
+}
+
+.sp-code-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 2ch;
+  padding-bottom: 0.6em;
+  color: var(--sp-ui);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sp-code-view {
+  min-height: 0;
+  overflow: auto;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+.sp-code-line {
+  min-height: 1.45em;
+  padding: 0 0.4ch;
+  opacity: 0.34;
+}
+
+.sp-code-line.sp-code-current {
+  background: color-mix(in srgb, var(--sp-orp) 13%, transparent);
+  opacity: 1;
+}
+
+.sp-progress {
+  width: 100%;
+  height: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--sp-rule) 55%, transparent);
+}
+
+.sp-progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--sp-ui);
+}
+
+.sp-controls {
+  color: var(--sp-ui);
+  font-family: var(--sp-font-stack);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  transition: opacity 400ms linear;
+}
+
+.sp-controls.sp-idle {
+  opacity: 0;
+}
+
+.sp-status {
+  min-height: 1.4em;
+  margin: 8px 0;
+}
+
+.sp-transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sp-button,
+.sp-slider {
+  color: inherit;
+  accent-color: var(--sp-orp);
+  font: inherit;
+}
+
+.sp-button {
+  min-width: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  background: var(--sp-bg);
+  cursor: pointer;
+}
+
+.sp-button:focus-visible,
+.sp-slider:focus-visible {
+  outline: 2px solid var(--sp-orp);
+  outline-offset: 2px;
+}
+
+.sp-slider {
+  width: 120px;
+}
+
+.sp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: pre-wrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-controls {
+    transition: none;
+  }
+
+  .sp-controls.sp-idle {
+    opacity: 1;
+  }
+}
+
+/* Paste fallback (SPEC §4). Kept separate from the Redicle rules above. */
+.sp-paste {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  background: var(--sp-bg);
+  font-size: 13px;
+}
+
+.sp-paste-textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 10px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  color: var(--sp-fg);
+  background: var(--sp-bg);
+  font: 14px/1.5 sans-serif;
+}
+
+.sp-paste-actions {
+  text-align: right;
+}
+
+.sp-paste-actions .sp-button { margin-left: 8px; }
+
+.sp-panel-title,
+.sp-panel-message {
+  margin: 0;
+}
+
+.sp-panel-title {
+  color: var(--sp-fg);
+  font: 600 16px/1.4 sans-serif;
+}
+
+.sp-panel-message {
+  color: var(--sp-ui);
+  font: 14px/1.5 sans-serif;
+}
+
+.sp-settings,
+.sp-error {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  color: var(--sp-ui);
+  background: var(--sp-bg);
+  font: 13px/1.4 sans-serif;
+}
+
+.sp-settings[hidden] { display: none; }
+
+.sp-settings-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sp-settings-fields label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.sp-settings-fields input,
+.sp-settings-fields select {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  color: var(--sp-fg);
+  background: var(--sp-bg);
+  font: inherit;
+}
+
+.sp-settings-fields input:focus-visible,
+.sp-settings-fields select:focus-visible {
+  outline: 2px solid var(--sp-orp);
+  outline-offset: 2px;
+}
+
+.sp-settings-actions { margin-top: 12px; text-align: right; }
+.sp-settings-actions .sp-button + .sp-button { margin-left: 8px; }
+
+.sp-settings-error { margin: 8px 0 0; }
+.sp-version { margin: 12px 0 0; font-size: 11px; }
+
+.sp-error {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.sp-error .sp-button { justify-self: end; }
+
+.sp-overlay{position:relative;height:100%;background:transparent}.sp-reader{top:50%;max-width:calc(100% - 32px)}.sp-redicle{cursor:default}.sp-word{width:1ch}.sp-orp{display:inline-block;width:1ch;text-align:center} @media(prefers-reduced-motion:reduce){.sp-redicle{transform:none!important;animation:none!important;transition:none!important}}
+</style><div class="sp-overlay"><div class="sp-reader"></div></div>`;
+const redicle=new Redicle(document);shadow.querySelector('.sp-reader').append(redicle.element);
+const orp=shadow.querySelector('.sp-orp');
+const mq=matchMedia('(prefers-reduced-motion: reduce)');
+const flags=['jitter','blank','neutral','weight','underline','hue','pulse','drift','rest'];
+let cfg={},scheduler,tokens=[],current,wordIndex=0,active=0,segmentStart=0,continuousStart=0;
+let virtualOffset=0,blankStart=null,blankTimer,dwellTimer,jx=0,jy=0,jitterStep=0,lastJitter=0,lastBlank=0,lastNudge=0;
+let pulseUntil=0,lastPulse=-Infinity;
+const now=()=>performance.now();
+const virtualNow=()=> (blankStart===null?now():blankStart)-virtualOffset;
+const total=()=>active+(scheduler?.isPlaying?now()-segmentStart:0);
+const stamp=ms=>`${Math.floor(ms/60000).toString().padStart(2,'0')}:${Math.floor(ms/1000%60).toString().padStart(2,'0')}`;
+function note(message){$('log').textContent+=`${stamp(total())} ${message}\n`;}
+function endBlank(){if(blankStart!==null){virtualOffset+=now()-blankStart;blankStart=null;}clearTimeout(blankTimer);redicle.element.style.visibility='';}
+const clock={now:virtualNow,setTimer(callback,delay){return setTimeout(()=>{
+ const due=cfg.blank&&(cfg.blankMode==='word'||cfg.blankMode==='sentence'&&endsSentence(current.text)||cfg.blankMode==='timer'&&total()-lastBlank>=cfg.blankEvery*1000);
+ if(!due){callback();return;}
+ lastBlank=total();blankStart=now();redicle.element.style.visibility='hidden';
+ blankTimer=setTimeout(()=>{endBlank();callback();},cfg.blankMs);
+},delay);},clearTimer(handle){clearTimeout(handle);endBlank();}};
+function jitter(){if(!cfg.jitter||mq.matches)return;const positions=[[1,0],[0,1],[-1,0],[0,-1]];const p=positions[jitterStep++%4];jx=p[0]*cfg.jitterPx;jy=p[1]*cfg.jitterPx;}
+function readConfig(){for(const el of document.querySelectorAll('input,select')){cfg[el.id]=el.type==='checkbox'?el.checked:el.type==='number'?Number(el.value):el.value;}
+ scheduler?.setWpm(cfg.wpm);$('stage').dataset.theme=cfg.theme;$('stage').style.setProperty('--sp-font-size',cfg.size+'px');
+ if(!cfg.jitter||mq.matches){jx=jy=0;clearTimeout(dwellTimer);}if(!cfg.rest)$('restBox').hidden=true;
+ orp.style.webkitTextStroke=cfg.weight?({600:'.2',700:'.35',800:'.5'}[cfg.weightValue]+'px currentColor'):'';
+ orp.style.textDecoration=cfg.underline?`underline ${cfg.linePx}px`:'';
+ $('motionStatus').textContent=mq.matches?'Reduced motion is active: jitter and drift are disabled regardless of their toggles.':'Motion is available. Your system’s reduced-motion preference always disables jitter and drift.';
+ effects(total());}
+
+// SPEC-adjacent: fire the colour pulse where the reader is already resting — a sentence
+// end or a long word — so the jolt costs no extra attention. The pulse then lasts that
+// word's dwell rather than a fixed slice of wall clock.
+function maybePulse(token,index){
+ if(!cfg.pulse||cfg.pulseTrigger==='timer')return;
+ const t=total();
+ if(t-lastPulse<cfg.pulseGap*1000)return;
+ const dwell=Math.max(index===0?400:0,tokenDurationMs(token,cfg.wpm));
+ const sentence=token.kind!=='code'&&endsSentence(token.text);
+ const long=dwell>=cfg.pulseDwell;
+ const want=cfg.pulseTrigger==='sentence'?sentence:cfg.pulseTrigger==='long'?long:(sentence||long);
+ if(!want)return;
+ lastPulse=t;
+ pulseUntil=t+Math.min(cfg.pulseFor*1000,dwell);
+}
+function effects(t){const motion=!mq.matches;
+ const drift=motion&&cfg.drift?cfg.driftPct*Math.sin(2*Math.PI*t/(cfg.driftMinutes*60000)):0;
+ redicle.element.style.transform=motion?`translate(calc(${drift}% + ${jx}px), ${jy}px)`:'none';
+ const dark=cfg.theme==='dark';let color=dark?'#ff4a4a':'#d0021b';
+ const baseSat=(dark?100:98)*(cfg.sat/100);
+ const pulsing=cfg.pulse&&(cfg.pulseTrigger==='timer'
+  ? t%(cfg.pulseEvery*1000)<Math.min(cfg.pulseFor,cfg.pulseEvery)*1000
+  : t<pulseUntil);
+ if(cfg.sat<100||cfg.hue||cfg.pulse){let sat=pulsing?cfg.pulseSat:baseSat;
+ let light=(dark?65:41)+(pulsing?cfg.pulseLift:0);
+ const hue=(dark?0:353)+(cfg.hue?cfg.hueDeg*Math.sin(2*Math.PI*t/(cfg.huePeriod*1000)):0);
+ color=`hsl(${hue} ${Math.min(100,sat)}% ${Math.min(92,light)}%)`;}
+ orp.style.color=cfg.neutral?'var(--sp-fg)':color;}
+function stopped(message){active+=now()-segmentStart;clearTimeout(dwellTimer);endBlank();$('play').textContent='Play';$('restBox').hidden=true;note(message);}
+function load(){scheduler?.pause();endBlank();clearTimeout(dwellTimer);tokens=tokenize($('passage').value);active=0;virtualOffset=0;lastBlank=0;lastJitter=0;lastNudge=0;jx=jy=0;jitterStep=0;pulseUntil=0;lastPulse=-Infinity;
+ scheduler=new Scheduler(tokens,{settings:{wpm:cfg.wpm},clock});
+ scheduler.on('tick',(token,index)=>{current=token;wordIndex=index;redicle.render(token);clearTimeout(dwellTimer);maybePulse(token,index);
+ if(cfg.jitterMode==='tick')jitter();if(cfg.jitter&&cfg.jitterMode==='dwell'&&!mq.matches&&Math.max(index===0?400:0,tokenDurationMs(token,cfg.wpm))>cfg.dwellMs)dwellTimer=setTimeout(()=>{jitter();effects(total());},cfg.dwellMs);
+ effects(total());});
+ scheduler.on('paused',reason=>stopped(`Paused (${reason})`));scheduler.on('finished',()=>stopped('Finished'));
+ if(tokens.length){current=tokens[0];wordIndex=0;redicle.render(current);}else{shadow.querySelectorAll('.sp-pre,.sp-orp,.sp-post').forEach(e=>e.textContent='');}
+ $('play').disabled=!tokens.length;$('play').textContent='Play';
+ const duration=tokens.reduce((sum,t)=>sum+tokenDurationMs(t,cfg.wpm),0);
+ $('length').textContent=`${$('passage').value.trim().split(/\s+/).filter(Boolean).length} source words · ${tokens.length} display tokens · ${stamp(duration)} baseline at ${cfg.wpm} WPM including timing factors.`;
+ note('New trial '+JSON.stringify(cfg));effects(0);}
+function playPause(){if(scheduler.isPlaying){scheduler.pause();return;}segmentStart=now();continuousStart=segmentStart;lastNudge=0;scheduler.play();$('play').textContent='Pause';note('Play');}
+$('play').onclick=playPause;$('restart').onclick=load;$('load').onclick=load;$('mark').onclick=()=>note(`FADING at token ${wordIndex+1}; continuous ${stamp(scheduler.isPlaying?now()-continuousStart:0)}; ${JSON.stringify({...cfg,reducedMotion:mq.matches})}`);
+$('restPause').onclick=()=>scheduler.pause();$('dismiss').onclick=()=>{$('restBox').hidden=true;note('Nudge dismissed');};
+$('baseline').onclick=()=>{flags.forEach(id=>$(id).checked=false);readConfig();note('All mitigations off');};
+for(const el of document.querySelectorAll('input,select'))el.addEventListener('change',()=>{if(!el.checkValidity()){el.reportValidity();return;}readConfig();note('Settings '+JSON.stringify(cfg));});
+mq.addEventListener('change',()=>{readConfig();note('Reduced motion '+mq.matches);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)scheduler?.pause();});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea,button')||e.repeat)return;if(e.code==='Space'){e.preventDefault();playPause();}if(e.key.toLowerCase()==='f')$('mark').click();});
+setInterval(()=>{const t=total();if(scheduler?.isPlaying){if(cfg.jitter&&cfg.jitterMode==='timer'&&!mq.matches&&t-lastJitter>=1000/cfg.jitterHz){jitter();lastJitter=t;}effects(t);const continuous=now()-continuousStart;if(cfg.rest&&continuous-lastNudge>=cfg.restMinutes*60000){lastNudge=continuous;$('restBox').hidden=false;note('Rest nudge');}}
+ $('elapsed').textContent=stamp(t);$('continuous').textContent=`continuous ${stamp(scheduler?.isPlaying?now()-continuousStart:0)}`;$('status').textContent=`${scheduler?.isPlaying?'Reading':'Paused'} · token ${tokens.length?wordIndex+1:0} / ${tokens.length} · blanks add time; no words skipped.`;
+},33);
+$('passage').value="The station at the edge of the valley had been closed for eleven years when Mara arrived with a key and a notebook. From the road it looked smaller than she remembered. The roof still carried its narrow strip of green glass, but the sign above the entrance had lost three letters. A birch tree grew beside the platform where passengers once queued for the morning train. Its branches moved in the wind while everything built around it remained still.\n\nShe had come to make an inventory, not to restore the building. The town council wanted to know what remained before deciding what the station could become. A workshop was one suggestion. A small library was another. Someone had proposed a room where people could simply sit without having to buy anything. Mara liked that idea, although she suspected that the simplest proposal would prove the hardest to explain on a funding form.\n\nInside, the air smelled of wood and cold stone. She opened the shutters one by one. Each window admitted a different shape of light, and each shape revealed something that had been invisible a moment before. A pale square on the wall marked the place where a clock had hung. Beneath it stood a desk with a shallow drawer. In the drawer she found a pencil, two buttons, and a folded map of a railway that no longer existed.\n\nThe map did not show the valley as she knew it. It showed a sequence of connections. Villages that seemed remote from one another by road sat only a few stops apart along the printed line. A branch crossed the river and continued toward a quarry. Another ended near an orchard that had since become a housing estate. She spread the paper flat and copied the names into her notebook, leaving space beside each name for whatever she might learn later.\n\nAt noon a neighbour arrived carrying a flask. His name was Tomas, and he had once repaired signals along the route. He did not offer a grand history. Instead he pointed to small things: a patch in the floor where a stove had stood, the hook that held a lantern, the window through which the last clerk used to watch for bicycles. The station became easier to imagine when he described what people did with their hands.\n\nThey ate on the platform. Tomas said that the final train had left on a wet Thursday, almost empty. There had been no ceremony because the closure was still being described as temporary. For several weeks afterward, people continued to check the timetable. Then they stopped checking it. The paper stayed behind the glass until sunlight bleached the ink. What disappeared first, he said, was not the railway but the expectation that something would arrive.\n\nMara spent the afternoon sorting objects into groups. Useful things went on the desk. Things whose purpose she could not identify went on a sheet beside the door. Broken things stayed where they were until she understood what had broken and whether anything depended on them. She resisted the urge to call every unfamiliar object obsolete. Several pieces that looked decorative turned out to be fittings for equipment that had once required exact placement.\n\nToward evening she found a ledger beneath a shelf. Its pages recorded parcels rather than passengers. There were boxes of machine parts, baskets of plants, a repaired violin, and a crate whose contents had been described only as fragile. Each entry had a destination and a weight. A few carried notes in a second hand. One asked the clerk to keep a parcel dry. Another said that the recipient would collect it after feeding the animals.\n\nThe ledger changed her account of the place. Until then she had pictured people leaving for work or returning from journeys. Now she saw a building through which ordinary needs had passed. A missing part could stop a machine. A delayed parcel could spoil a celebration. The railway had connected private plans to a public schedule, and the station clerk had stood at the point where those two kinds of time met.\n\nOn her second morning Mara walked the old track bed. Grass covered the gravel, but the ground still held a clear line through the fields. Where the rails had crossed a stream, only the bridge supports remained. She stopped there and listened. Water struck a loose stone below the bank at irregular intervals. Beyond the stream, a farmer was opening a gate. Nothing about the landscape announced that it had once been arranged around a timetable.\n\nShe returned with mud on her boots and a different question in her notebook. Instead of asking how the station might be preserved, she asked what people needed to do together that had no suitable place. The answer would not necessarily resemble a railway. A useful building could carry traces of its former purpose without pretending that the old service was about to resume. Keeping a room alive might require changing what happened inside it.\n\nAt the first public meeting, everyone described a different absence. A parent wanted somewhere warm to wait between school and the evening bus. A carpenter wanted tables large enough for shared repairs. A teenager wanted a quiet room that did not belong to a school. An older resident wanted the name of the station put back above the door. These requests did not form a finished plan, but they gave the room dimensions that an inventory could not supply.\n\nThey agreed to start with one Saturday a month. The desk would remain by the window. A kettle would sit where the stove had stood, and portable tables would leave the centre of the room open. The ledger and map would go in a cabinet where anyone could look at them. No one called this a complete restoration. It was a modest arrangement that could be altered after people had tried it.\n\nOn the first Saturday, Mara unlocked the entrance before the others arrived. She set her notebook on the desk and opened the shutters. For a while the room looked much as it had on her first visit. Then someone knocked, although the door was already open. A person entered carrying a broken chair. Behind them came two children and a woman with a bag of books. The building had acquired a schedule again, and this time Mara knew what she was waiting for.\n\n\nThe station at the edge of the valley had been closed for eleven years when Mara arrived with a key and a notebook. From the road it looked smaller than she remembered. The roof still carried its narrow strip of green glass, but the sign above the entrance had lost three letters. A birch tree grew beside the platform where passengers once queued for the morning train. Its branches moved in the wind while everything built around it remained still.\n\nShe had come to make an inventory, not to restore the building. The town council wanted to know what remained before deciding what the station could become. A workshop was one suggestion. A small library was another. Someone had proposed a room where people could simply sit without having to buy anything. Mara liked that idea, although she suspected that the simplest proposal would prove the hardest to explain on a funding form.\n\nInside, the air smelled of wood and cold stone. She opened the shutters one by one. Each window admitted a different shape of light, and each shape revealed something that had been invisible a moment before. A pale square on the wall marked the place where a clock had hung. Beneath it stood a desk with a shallow drawer. In the drawer she found a pencil, two buttons, and a folded map of a railway that no longer existed.\n\nThe map did not show the valley as she knew it. It showed a sequence of connections. Villages that seemed remote from one another by road sat only a few stops apart along the printed line. A branch crossed the river and continued toward a quarry. Another ended near an orchard that had since become a housing estate. She spread the paper flat and copied the names into her notebook, leaving space beside each name for whatever she might learn later.\n\nAt noon a neighbour arrived carrying a flask. His name was Tomas, and he had once repaired signals along the route. He did not offer a grand history. Instead he pointed to small things: a patch in the floor where a stove had stood, the hook that held a lantern, the window through which the last clerk used to watch for bicycles. The station became easier to imagine when he described what people did with their hands.\n\nThey ate on the platform. Tomas said that the final train had left on a wet Thursday, almost empty. There had been no ceremony because the closure was still being described as temporary. For several weeks afterward, people continued to check the timetable. Then they stopped checking it. The paper stayed behind the glass until sunlight bleached the ink. What disappeared first, he said, was not the railway but the expectation that something would arrive.\n\nMara spent the afternoon sorting objects into groups. Useful things went on the desk. Things whose purpose she could not identify went on a sheet beside the door. Broken things stayed where they were until she understood what had broken and whether anything depended on them. She resisted the urge to call every unfamiliar object obsolete. Several pieces that looked decorative turned out to be fittings for equipment that had once required exact placement.\n\nToward evening she found a ledger beneath a shelf. Its pages recorded parcels rather than passengers. There were boxes of machine parts, baskets of plants, a repaired violin, and a crate whose contents had been described only as fragile. Each entry had a destination and a weight. A few carried notes in a second hand. One asked the clerk to keep a parcel dry. Another said that the recipient would collect it after feeding the animals.\n\nThe ledger changed her account of the place. Until then she had pictured people leaving for work or returning from journeys. Now she saw a building through which ordinary needs had passed. A missing part could stop a machine. A delayed parcel could spoil a celebration. The railway had connected private plans to a public schedule, and the station clerk had stood at the point where those two kinds of time met.\n\nOn her second morning Mara walked the old track bed. Grass covered the gravel, but the ground still held a clear line through the fields. Where the rails had crossed a stream, only the bridge supports remained. She stopped there and listened. Water struck a loose stone below the bank at irregular intervals. Beyond the stream, a farmer was opening a gate. Nothing about the landscape announced that it had once been arranged around a timetable.\n\nShe returned with mud on her boots and a different question in her notebook. Instead of asking how the station might be preserved, she asked what people needed to do together that had no suitable place. The answer would not necessarily resemble a railway. A useful building could carry traces of its former purpose without pretending that the old service was about to resume. Keeping a room alive might require changing what happened inside it.\n\nAt the first public meeting, everyone described a different absence. A parent wanted somewhere warm to wait between school and the evening bus. A carpenter wanted tables large enough for shared repairs. A teenager wanted a quiet room that did not belong to a school. An older resident wanted the name of the station put back above the door. These requests did not form a finished plan, but they gave the room dimensions that an inventory could not supply.\n\nThey agreed to start with one Saturday a month. The desk would remain by the window. A kettle would sit where the stove had stood, and portable tables would leave the centre of the room open. The ledger and map would go in a cabinet where anyone could look at them. No one called this a complete restoration. It was a modest arrangement that could be altered after people had tried it.\n\nOn the first Saturday, Mara unlocked the entrance before the others arrived. She set her notebook on the desk and opened the shutters. For a while the room looked much as it had on her first visit. Then someone knocked, although the door was already open. A person entered carrying a broken chair. Behind them came two children and a woman with a bag of books. The building had acquired a schedule again, and this time Mara knew what she was waiting for.\n\n\nThe station at the edge of the valley had been closed for eleven years when Mara arrived with a key and a notebook. From the road it looked smaller than she remembered. The roof still carried its narrow strip of green glass, but the sign above the entrance had lost three letters. A birch tree grew beside the platform where passengers once queued for the morning train. Its branches moved in the wind while everything built around it remained still.\n\nShe had come to make an inventory, not to restore the building. The town council wanted to know what remained before deciding what the station could become. A workshop was one suggestion. A small library was another. Someone had proposed a room where people could simply sit without having to buy anything. Mara liked that idea, although she suspected that the simplest proposal would prove the hardest to explain on a funding form.\n\nInside, the air smelled of wood and cold stone. She opened the shutters one by one. Each window admitted a different shape of light, and each shape revealed something that had been invisible a moment before. A pale square on the wall marked the place where a clock had hung. Beneath it stood a desk with a shallow drawer. In the drawer she found a pencil, two buttons, and a folded map of a railway that no longer existed.\n\nThe map did not show the valley as she knew it. It showed a sequence of connections. Villages that seemed remote from one another by road sat only a few stops apart along the printed line. A branch crossed the river and continued toward a quarry. Another ended near an orchard that had since become a housing estate. She spread the paper flat and copied the names into her notebook, leaving space beside each name for whatever she might learn later.\n\nAt noon a neighbour arrived carrying a flask. His name was Tomas, and he had once repaired signals along the route. He did not offer a grand history. Instead he pointed to small things: a patch in the floor where a stove had stood, the hook that held a lantern, the window through which the last clerk used to watch for bicycles. The station became easier to imagine when he described what people did with their hands.\n\nThey ate on the platform. Tomas said that the final train had left on a wet Thursday, almost empty. There had been no ceremony because the closure was still being described as temporary. For several weeks afterward, people continued to check the timetable. Then they stopped checking it. The paper stayed behind the glass until sunlight bleached the ink. What disappeared first, he said, was not the railway but the expectation that something would arrive.\n\nMara spent the afternoon sorting objects into groups. Useful things went on the desk. Things whose purpose she could not identify went on a sheet beside the door. Broken things stayed where they were until she understood what had broken and whether anything depended on them. She resisted the urge to call every unfamiliar object obsolete. Several pieces that looked decorative turned out to be fittings for equipment that had once required exact placement.\n\nToward evening she found a ledger beneath a shelf. Its pages recorded parcels rather than passengers. There were boxes of machine parts, baskets of plants, a repaired violin, and a crate whose contents had been described only as fragile. Each entry had a destination and a weight. A few carried notes in a second hand. One asked the clerk to keep a parcel dry. Another said that the recipient would collect it after feeding the animals.\n\nThe ledger changed her account of the place. Until then she had pictured people leaving for work or returning from journeys. Now she saw a building through which ordinary needs had passed. A missing part could stop a machine. A delayed parcel could spoil a celebration. The railway had connected private plans to a public schedule, and the station clerk had stood at the point where those two kinds of time met.\n\nOn her second morning Mara walked the old track bed. Grass covered the gravel, but the ground still held a clear line through the fields. Where the rails had crossed a stream, only the bridge supports remained. She stopped there and listened. Water struck a loose stone below the bank at irregular intervals. Beyond the stream, a farmer was opening a gate. Nothing about the landscape announced that it had once been arranged around a timetable.\n\nShe returned with mud on her boots and a different question in her notebook. Instead of asking how the station might be preserved, she asked what people needed to do together that had no suitable place. The answer would not necessarily resemble a railway. A useful building could carry traces of its former purpose without pretending that the old service was about to resume. Keeping a room alive might require changing what happened inside it.\n\nAt the first public meeting, everyone described a different absence. A parent wanted somewhere warm to wait between school and the evening bus. A carpenter wanted tables large enough for shared repairs. A teenager wanted a quiet room that did not belong to a school. An older resident wanted the name of the station put back above the door. These requests did not form a finished plan, but they gave the room dimensions that an inventory could not supply.\n\nThey agreed to start with one Saturday a month. The desk would remain by the window. A kettle would sit where the stove had stood, and portable tables would leave the centre of the room open. The ledger and map would go in a cabinet where anyone could look at them. No one called this a complete restoration. It was a modest arrangement that could be altered after people had tried it.\n\nOn the first Saturday, Mara unlocked the entrance before the others arrived. She set her notebook on the desk and opened the shutters. For a while the room looked much as it had on her first visit. Then someone knocked, although the door was already open. A person entered carrying a broken chair. Behind them came two children and a woman with a bag of books. The building had acquired a schedule again, and this time Mara knew what she was waiting for.\n";
+readConfig();load();
+
+</script></html>
+
+<script>
+(function () {
+  const JETBRAINS = '"JetBrainsMono Nerd Font Mono", "JetBrainsMono NFM", "JetBrains Mono", monospace';
+  const select = document.getElementById('font');
+  const state = document.getElementById('fontState');
+  const host = () => document.querySelector('#stage')?.shadowRoot ?? document;
+
+  // document.fonts.check() reports true for an unknown family because the generic
+  // fallback counts as loadable, so it cannot detect a missing font. Compare rendered
+  // width against each generic instead: if the family never changes the metrics, it is
+  // not resolving and the trial would silently be testing the default stack.
+  function installed(family) {
+    const context = document.createElement('canvas').getContext('2d');
+    if (context === null) return false;
+    const probe = 'mmmmmmmmmmlliWWWW@!#0Oo';
+    return ['monospace', 'serif', 'sans-serif'].some((generic) => {
+      context.font = '72px ' + generic;
+      const base = context.measureText(probe).width;
+      context.font = '72px "' + family + '", ' + generic;
+      return context.measureText(probe).width !== base;
+    });
+  }
+
+  function apply() {
+    const wantJet = select.value === 'jetbrains';
+    const stack = wantJet ? JETBRAINS : null;
+    for (const root of [document.documentElement, host().host ?? null].filter(Boolean)) {
+      if (stack) root.style.setProperty('--sp-font-stack', stack);
+      else root.style.removeProperty('--sp-font-stack');
+    }
+    const shadow = document.querySelector('#stage')?.shadowRoot;
+    const target = shadow?.host ?? null;
+    if (target) {
+      if (stack) target.style.setProperty('--sp-font-stack', stack);
+      else target.style.removeProperty('--sp-font-stack');
+    }
+    if (!wantJet) { state.textContent = ''; return; }
+    const ok = installed('JetBrainsMono Nerd Font Mono') || installed('JetBrains Mono');
+    state.textContent = ok
+      ? 'JetBrains Mono resolved.'
+      : 'NOT INSTALLED — silently falling back to the default stack, so this is not a real test.';
+    state.style.color = ok ? '#1c6b3a' : '#a3231b';
+  }
+
+  select.addEventListener('change', apply);
+  if (document.fonts?.ready) document.fonts.ready.then(apply);
+  apply();
+})();
+</script>

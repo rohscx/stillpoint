@@ -6,7 +6,7 @@
   --sp-scrim: rgba(244, 242, 239, 0.985);
   --sp-ui: #8a8783;
   --sp-font-size: 36px;
-  --sp-font-stack: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sp-font-stack: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
   --sp-line-height: 1.2;
   --sp-frame-width: clamp(320px, 32ch, 720px);
   --sp-frame-height: 6.6em;
@@ -83,6 +83,7 @@
 }
 
 .sp-redicle {
+  transform: var(--sp-comfort-transform, none);
   position: relative;
   width: 100%;
   height: var(--sp-frame-height);
@@ -143,6 +144,7 @@
 }
 
 .sp-word {
+  width: 1ch;
   position: absolute;
   left: var(--sp-orp-column);
   transform: translateX(-0.5ch);
@@ -155,7 +157,11 @@
 }
 
 .sp-orp {
-  color: var(--sp-orp);
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  color: var(--sp-comfort-color, var(--sp-orp));
+  -webkit-text-stroke: var(--sp-orp-stroke, 0px) currentColor;
 }
 
 .sp-post {
@@ -403,3 +409,26 @@
 }
 
 .sp-error .sp-button { justify-self: end; }
+
+.sp-comfort-blank { visibility: hidden; }
+.sp-rest-nudge[hidden] { display: none; }
+.sp-comfort-details { margin-top: 8px; }
+.sp-comfort-details summary { cursor: pointer; }
+.sp-comfort-fields { display: grid; gap: 6px; margin-top: 8px; }
+.sp-comfort-fields label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sp-comfort-fields input[type=number] { width: 72px; }
+.sp-comfort-note { font-size: 12px; margin: 8px 0; }
+.sp-settings {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(600px, calc(100vh - 32px));
+  margin-top: 0;
+  overflow-y: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-redicle { transform: none !important; }
+}

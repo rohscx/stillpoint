@@ -32,7 +32,7 @@ const permissions = Array.isArray(manifest.permissions) ? [...manifest.permissio
 const rows = [
   ['Manifest version', manifest.version ?? '(missing)', packageJson.version, manifest.version === packageJson.version],
   ['Total unpacked extension size', formatBytes(totalBytes), `≤ ${formatBytes(250 * KIB)}`, totalBytes <= 250 * KIB],
-  ['Injected runtime, gzipped', formatBytes(readerGzip), `≤ ${formatBytes(45 * KIB)}`, readerGzip <= 45 * KIB],
+  ['Injected runtime, gzipped', formatBytes(readerGzip), `\u2264 ${formatBytes(46_080)}`, readerGzip <= 46_080],
   ['Readability chunk, gzipped', formatBytes(extractGzip), `≤ ${formatBytes(30 * KIB)}`, extractGzip <= 30 * KIB],
   ['Runtime dependencies', `${dependencies.length}: ${dependencies.join(', ') || '(none)'}`, 'exactly 1: @mozilla/readability', dependencies.length === 1 && dependencies[0] === '@mozilla/readability'],
   ['host_permissions', Object.hasOwn(manifest, 'host_permissions') ? 'present' : 'absent', 'absent', !Object.hasOwn(manifest, 'host_permissions')],

@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type ReaderPosition, type Settings, type TimingFactors } from './types.js';
+import { DEFAULT_COMFORT, DEFAULT_SETTINGS, type ComfortSettings, type ReaderPosition, type Settings, type TimingFactors } from './types.js';
 
 const STORAGE_KEY = 'settings';
 const FONT_SIZES: readonly Settings['fontSize'][] = [20, 28, 36, 48];
@@ -66,6 +66,29 @@ function position(value: unknown): ReaderPosition | null {
   return { x: clamp(x, 0, 100), y: clamp(y, 0, 100) };
 }
 
+export const COMFORT_RANGES = {
+  saturation: [0, 100, 1], hueDegrees: [1, 25, 1], huePeriodSeconds: [5, 120, 1],
+  pulseDwellMs: [120, 1500, 10], pulseGapSeconds: [0, 120, 0.1],
+  pulseDurationSeconds: [0.1, 20, 0.1], pulseEverySeconds: [2, 120, 1],
+  pulseSaturation: [0, 100, 1], pulseLightness: [0, 30, 1],
+  driftPercent: [0.25, 2, 0.25], driftMinutes: [1, 10, 0.5],
+} as const;
+
+function comfortSettings(value: unknown): ComfortSettings {
+  const raw = record(value) ?? {};
+  const result = { ...DEFAULT_COMFORT };
+  for (const key of Object.keys(COMFORT_RANGES) as Array<keyof typeof COMFORT_RANGES>) {
+    const [min, max] = COMFORT_RANGES[key];
+    result[key] = clamp(finiteNumber(raw[key], result[key]), min, max);
+  }
+  for (const key of ['hue', 'pulse', 'drift', 'jitter', 'microBlank', 'restNudge', 'neutral'] as const) {
+    result[key] = booleanValue(raw[key], result[key]);
+  }
+  if (raw.weight === 400 || raw.weight === 600 || raw.weight === 700 || raw.weight === 800) result.weight = raw.weight;
+  if (raw.pulseTrigger === 'natural' || raw.pulseTrigger === 'sentence' || raw.pulseTrigger === 'long' || raw.pulseTrigger === 'timer') result.pulseTrigger = raw.pulseTrigger;
+  return result;
+}
+
 // SPEC §5.3
 export function migrate(value: unknown): Settings {
   const raw = record(value) ?? {};
@@ -88,6 +111,7 @@ export function migrate(value: unknown): Settings {
     theme,
     maxWordLen: rawMaxWordLen >= 2 ? Math.min(256, Math.trunc(rawMaxWordLen)) : DEFAULT_SETTINGS.maxWordLen,
     factors: timingFactors(raw.factors),
+    comfort: comfortSettings(storedVersion >= 3 ? raw.comfort : undefined),
     position: position(raw.position),
     autoRewindOnResume: booleanValue(raw.autoRewindOnResume, DEFAULT_SETTINGS.autoRewindOnResume),
     hideControlsWhilePlaying: booleanValue(

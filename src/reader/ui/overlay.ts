@@ -8,9 +8,10 @@ export interface OverlayElements {
 }
 
 function focusableElements(root: ShadowRoot): HTMLElement[] {
-  const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const selector = 'summary, button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   return Array.from(root.querySelectorAll<HTMLElement>(selector))
-    .filter((element) => element.closest('[hidden]') === null);
+    .filter((element) => element.closest('[hidden]') === null
+      && (element.matches('summary') || element.closest('details:not([open])') === null));
 }
 
 export class Overlay {

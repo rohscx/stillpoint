@@ -3,7 +3,7 @@ import { loadSettings, migrate, saveSettings, type SettingsStorageArea } from '.
 import { DEFAULT_SETTINGS, type Settings } from '../src/shared/types.js';
 
 function expectValid(settings: Settings): void {
-  expect(settings.version).toBe(2);
+  expect(settings.version).toBe(3);
   expect(settings.wpm).toBeGreaterThanOrEqual(150);
   expect(settings.wpm).toBeLessThanOrEqual(1_000);
   expect([20, 28, 36, 48]).toContain(settings.fontSize);
@@ -65,7 +65,7 @@ describe('migrate', () => {
   it('sanitizes an unknown future version', () => {
     const settings = migrate({ version: 99, wpm: 500, factors: { sentence: 3 } });
     expectValid(settings);
-    expect(settings.version).toBe(2);
+    expect(settings.version).toBe(3);
     expect(settings.wpm).toBe(500);
     expect(settings.factors.sentence).toBe(3);
     expect(settings.factors.clause).toBe(DEFAULT_SETTINGS.factors.clause);
@@ -122,7 +122,7 @@ it('upgrades a v1 settings object off the old 13-glyph word limit', () => {
   // the one that split 'infrastructure' into 'infrast-' and 'ructure'.
   const upgraded = migrate({ version: 1, wpm: 400, maxWordLen: 13 });
   expect(upgraded.maxWordLen).toBe(DEFAULT_SETTINGS.maxWordLen);
-  expect(upgraded.version).toBe(2);
+  expect(upgraded.version).toBe(3);
   expect(upgraded.wpm).toBe(400);
 });
 

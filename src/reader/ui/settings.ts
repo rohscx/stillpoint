@@ -1,7 +1,8 @@
-import type { Settings } from '../../shared/types.js';
+import { COMFORT_RANGES } from '../../shared/settings.js';
+import { READING_COMFORT, type ComfortSettings, type Settings } from '../../shared/types.js';
 import { extensionVersion } from '../../shared/version.js';
 
-export type ReaderSettingsPatch = Partial<Pick<Settings, 'wpm' | 'theme' | 'fontSize' | 'position'>>;
+export type ReaderSettingsPatch = Partial<Pick<Settings, 'wpm' | 'theme' | 'fontSize' | 'position' | 'comfort'>>;
 
 export interface SettingsPanelActions {
   load: () => Promise<Settings>;
@@ -16,10 +17,15 @@ export class SettingsPanel {
   readonly #fontSize: HTMLSelectElement;
   readonly #error: HTMLElement;
   readonly #actions: SettingsPanelActions;
+  readonly #comfortControls = new Map<keyof ComfortSettings, HTMLInputElement | HTMLSelectElement>();
+  readonly #motion = matchMedia('(prefers-reduced-motion: reduce)');
+  readonly #motionNote: HTMLElement;
+  #comfort: ComfortSettings;
   #returnFocus: HTMLElement | undefined;
 
   constructor(documentRoot: Document, settings: Settings, actions: SettingsPanelActions) {
     this.#actions = actions;
+    this.#comfort = { ...settings.comfort };
     this.element = documentRoot.createElement('section');
     this.element.className = 'sp-settings';
     this.element.hidden = true;
@@ -88,7 +94,69 @@ export class SettingsPanel {
     const loaded = extensionVersion();
     if (loaded === undefined) version.hidden = true;
     else version.textContent = `Stillpoint ${loaded}`;
-    this.element.append(title, fields, this.#error, version, footer);
+    const preset = documentRoot.createElement('button');
+    preset.type = 'button';
+    preset.className = 'sp-button';
+    preset.textContent = 'Reading comfort';
+    preset.addEventListener('click', () => void this.#save({ comfort: { ...READING_COMFORT } }));
+    const details = documentRoot.createElement('details');
+    details.className = 'sp-comfort-details';
+    const summary = documentRoot.createElement('summary');
+    summary.textContent = 'Adjust reading comfort';
+    const comfortFields = documentRoot.createElement('div');
+    comfortFields.className = 'sp-comfort-fields';
+    const labels: Record<keyof ComfortSettings, string> = {
+      saturation: 'Baseline saturation (%)', weight: 'ORP weight',
+      hue: 'Slow hue variation', hueDegrees: 'Hue radius (degrees)', huePeriodSeconds: 'Hue period (seconds)',
+      pulse: 'Saturation pulse', pulseTrigger: 'Pulse trigger', pulseDwellMs: 'Long-word dwell (ms)',
+      pulseGapSeconds: 'Minimum pulse gap (seconds)', pulseDurationSeconds: 'Pulse duration cap (seconds)',
+      pulseEverySeconds: 'Timer interval (seconds)', pulseSaturation: 'Pulse saturation (%)', pulseLightness: 'Pulse lightness boost',
+      drift: 'Slow column drift', driftPercent: 'Frame-width radius (%)', driftMinutes: 'Drift cycle (minutes)',
+      jitter: 'Coherent jitter (1 px, 1.5 Hz)', microBlank: 'Sentence micro-blank (24 ms)',
+      restNudge: 'Rest nudge (5 minutes)', neutral: 'Neutral colour',
+    };
+    for (const key of Object.keys(labels) as Array<keyof ComfortSettings>) {
+      let control: HTMLInputElement | HTMLSelectElement;
+      if (key === 'weight' || key === 'pulseTrigger') {
+        control = documentRoot.createElement('select');
+        const options = key === 'weight' ? [['400', '400'], ['600', '600'], ['700', '700'], ['800', '800']]
+          : [['natural', 'Natural pauses'], ['sentence', 'Sentence ends'], ['long', 'Long words'], ['timer', 'Independent timer']];
+        for (const [value, label] of options) {
+          const option = documentRoot.createElement('option');
+          option.value = value!;
+          option.textContent = label!;
+          control.append(option);
+        }
+      } else {
+        control = documentRoot.createElement('input');
+        control.type = typeof settings.comfort[key] === 'boolean' ? 'checkbox' : 'number';
+        if (key in COMFORT_RANGES) {
+          const [min, max, step] = COMFORT_RANGES[key as keyof typeof COMFORT_RANGES];
+          control.min = String(min); control.max = String(max); control.step = String(step);
+        }
+      }
+      control.setAttribute('aria-label', labels[key]);
+      control.dataset.comfort = key;
+      this.#comfortControls.set(key, control);
+      comfortFields.append(this.#field(documentRoot, labels[key], control));
+      control.addEventListener('change', () => {
+        if (!control.checkValidity()) { control.reportValidity(); return; }
+        const value = control instanceof HTMLInputElement && control.type === 'checkbox' ? control.checked
+          : key === 'pulseTrigger' ? control.value : Number(control.value);
+        this.#comfort = { ...this.#comfort, [key]: value };
+        void this.#save({ comfort: { ...this.#comfort } });
+      });
+    }
+    const note = documentRoot.createElement('p');
+    note.className = 'sp-comfort-note';
+    note.textContent = 'One reader’s preference from uncontrolled trials. Adjustable, not a proven remedy. Natural pulses last the word’s dwell, capped by duration; timer interval applies only to timer mode. Neutral colour overrides colour cycles.';
+    this.#motionNote = documentRoot.createElement('p');
+    this.#motionNote.className = 'sp-comfort-note';
+    this.#motionNote.setAttribute('role', 'status');
+    this.#motion.addEventListener('change', this.#showMotion);
+    this.#showMotion();
+    details.append(summary, note, comfortFields);
+    this.element.append(title, fields, preset, this.#motionNote, details, this.#error, version, footer);
     this.render(settings);
 
     this.#wpm.addEventListener('change', () => {
@@ -128,7 +196,23 @@ export class SettingsPanel {
     this.#returnFocus = undefined;
   }
 
+  destroy(): void {
+    this.close();
+    this.#motion.removeEventListener('change', this.#showMotion);
+  }
+
+  readonly #showMotion = (): void => {
+    this.#motionNote.textContent = this.#motion.matches
+      ? 'Reduced motion is active: column drift and jitter are disabled. Colour pulses may continue.'
+      : 'Your system’s reduced-motion preference disables column drift and jitter.';
+  };
+
   render(settings: Settings): void {
+    this.#comfort = { ...settings.comfort };
+    for (const [key, control] of this.#comfortControls) {
+      if (control instanceof HTMLInputElement && control.type === 'checkbox') control.checked = Boolean(settings.comfort[key]);
+      else control.value = String(settings.comfort[key]);
+    }
     this.#wpm.value = settings.wpm.toString();
     this.#theme.value = settings.theme;
     this.#fontSize.value = settings.fontSize.toString();

@@ -42,6 +42,8 @@ export class Keyboard {
     }
     // Text-entry controls must receive literal §5.2 keys while the paste/settings UI has focus.
     const fieldHasFocus = (
+      (event.target instanceof HTMLElement && event.target.closest('.sp-settings') !== null)
+      ||
       (event.target instanceof HTMLInputElement && event.target.type !== 'range')
       || event.target instanceof HTMLTextAreaElement
       || event.target instanceof HTMLSelectElement

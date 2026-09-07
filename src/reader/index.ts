@@ -2,6 +2,7 @@ import { Scheduler } from './engine/scheduler.js';
 import { mergeSettings } from './engine/timing.js';
 import { tokenize, unsupportedScript } from './engine/tokenize.js';
 import { acquireText } from './extract/index.js';
+import { Comfort } from './ui/comfort.js';
 import { Controls } from './ui/controls.js';
 import { Drag } from './ui/drag.js';
 import { ErrorPanel } from './ui/error.js';
@@ -81,9 +82,10 @@ function mountReaderInOverlay(
 ): ReaderHandle {
   let settings = initialSettings;
   const tokens = tokenize(blocks, { maxWordLen: settings.maxWordLen, factors: settings.factors });
-  const scheduler = new Scheduler(tokens, { settings });
   let drag: Drag | undefined;
   const redicle = new Redicle(document, () => drag?.reclamp(true));
+  const comfort = new Comfort(redicle.element, settings);
+  const scheduler = new Scheduler(tokens, { settings, clock: comfort.clock });
   overlay.elements.fullText.textContent = blocksText(blocks);
 
   let closed = false;
@@ -91,10 +93,13 @@ function mountReaderInOverlay(
   let settingsPanel: SettingsPanel | undefined;
   const unsubscribers: Array<() => void> = [];
 
-  const renderIndex = (index: number): void => {
+  const renderIndex = (index: number, dwell?: number): void => {
     const started = instrumentation === undefined ? 0 : performance.now();
     const token = currentToken(tokens, index);
-    if (token !== undefined) redicle.render(token);
+    if (token !== undefined) {
+      if (dwell !== undefined) comfort.tick(token, dwell);
+      redicle.render(token);
+    }
     controls.update(index, scheduler.wpm);
     if (instrumentation !== undefined) instrumentation.onRender(performance.now() - started);
   };
@@ -128,6 +133,7 @@ function mountReaderInOverlay(
   };
   const applySettings = (next: Settings): void => {
     settings = next;
+    comfort.apply(next);
     scheduler.setWpm(next.wpm);
     controls.setHideWhilePlaying(next.hideControlsWhilePlaying);
     overlay.setTheme(next.theme);
@@ -155,8 +161,9 @@ function mountReaderInOverlay(
     for (const unsubscribe of unsubscribers) unsubscribe();
     keyboard?.destroy();
     drag?.destroy();
-    settingsPanel?.close();
+    settingsPanel?.destroy();
     controls.destroy();
+    comfort.destroy();
     redicle.destroy();
     overlay.close();
     clearInjectionState();
@@ -193,7 +200,8 @@ function mountReaderInOverlay(
   });
   const chrome = document.createElement('div');
   chrome.className = 'sp-reader-chrome';
-  chrome.append(controls.progressElement, controls.element, settingsPanel.element);
+  chrome.append(controls.progressElement, controls.element, comfort.nudge);
+  overlay.elements.reader.parentElement?.append(settingsPanel.element);
   overlay.elements.reader.append(redicle.element, chrome);
   drag = new Drag(redicle.element, overlay.elements.reader, settings.position, {
     commit: (position) => {
@@ -204,13 +212,17 @@ function mountReaderInOverlay(
   });
   overlay.elements.reader.addEventListener('pointermove', () => controls.noteActivity());
 
+  const pauseWhenHidden = (): void => { if (document.hidden) scheduler.pause(); };
+  document.addEventListener('visibilitychange', pauseWhenHidden);
   unsubscribers.push(
-    scheduler.on('tick', (_token, index) => renderIndex(index)),
+    () => document.removeEventListener('visibilitychange', pauseWhenHidden),
+    scheduler.on('tick', (_token, index, dwell) => renderIndex(index, dwell)),
     scheduler.on('paused', (reason) => {
+      comfort.stop();
       controls.setPlaying(false);
       if (reason === 'stalled') controls.setStalledPause(true);
     }),
-    scheduler.on('finished', () => controls.setPlaying(false)),
+    scheduler.on('finished', () => { comfort.stop(); controls.setPlaying(false); }),
   );
 
   keyboard = new Keyboard(overlay.elements.shadowRoot, {
@@ -221,6 +233,7 @@ function mountReaderInOverlay(
     seekParagraph,
     restart: () => {
       scheduler.restart();
+      comfort.reset();
       controls.setPlaying(false);
       renderIndex(scheduler.index);
     },

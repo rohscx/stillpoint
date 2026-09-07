@@ -348,7 +348,7 @@ no JS width computation**. Do not implement alignment by padding with invisible 
 
 ### 3.2 Typography
 
-- Font stack: `ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace`.
+- Font stack: `"JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace`.
   Monospace is a hard requirement of the alignment mechanism above.
 - Size: user setting, 20 / 28 / 36 / 48 px (S/M/L/XL), default 36 px.
 - Weight 400. Letter-spacing 0. No ligatures (`font-variant-ligatures: none`) — ligatures
@@ -368,7 +368,8 @@ Two themes, following the page's `prefers-color-scheme` by default, user-overrid
 | `--sp-scrim` (page backdrop) | `rgba(244,242,239,0.985)` | `rgba(10,11,13,0.985)` |
 | `--sp-ui` (controls, dimmed) | `#8A8783` | `#6E7278` |
 
-The ORP red is the signature. Do not soften it, do not animate it, do not add a glow.
+The ORP red is the signature and remains the shipped default. Do not soften it, animate
+it or add a glow by default. The explicit opt-in exceptions are specified in §3.8.
 
 Two constraints on the pair above, both learned the hard way from a store screenshot:
 
@@ -391,7 +392,8 @@ Below the Redicle, in `--sp-ui` at 13 px:
 When playing and the mouse is idle for 1.5 s, controls fade to 0 opacity over 400 ms.
 Nothing but the Redicle and progress bar remains. **No animation of any kind inside the
 Redicle** — no fades, no transitions on the word, no cursor. The word swaps instantly.
-This is not negotiable; transitions destroy the RSVP effect.
+Word transitions remain prohibited; transitions destroy the RSVP effect. The opt-in
+colour and common-frame effects in §3.8 do not interpolate between words.
 
 The rest of the page is covered by `--sp-scrim` (a backdrop, not a blur — blur is
 expensive and causes compositor jank on large pages).
@@ -467,6 +469,101 @@ somewhere else. The user may therefore move it.
 Dragging moves the frame as a unit, so the ORP column stays fixed relative to the hash
 marks and the §3.1 alignment mechanism is unaffected. The alignment test must continue to
 pass at a non-default position — add a case that proves it.
+
+
+### 3.8 Reading comfort (v1.5.0)
+
+**Optional, with unchanged shipped defaults.** The in-reader settings panel offers one
+“Reading comfort” button that saves the preset below in one action. Individual controls
+sit behind “Adjust reading comfort”; applying the preset does not lock them. The compact
+panel opens over the reader and scrolls within the viewport, so the expanded controls
+remain reachable at small sizes and after repositioning the frame.
+
+The motivation is one reader's report that the red ORP became harder to see after 3–5
+minutes. As discussed in `docs/fixation-fatigue.md`, sustained fixation can reduce
+microsaccades and contribute to neural adaptation and perceptual fading. Slow chromatic
+adaptation in the red–green opponent channel is another plausible contributor: the
+supplied evidence describes recovery over tens of seconds, versus under 100 ms for
+luminance. These mechanisms do not establish the cause of this report. Changing letter
+shapes already changes the retinal stimulus; screen drift is not a microsaccade, and a
+brief blank is not a full chromatic reset.
+
+The preset comes from **one person's uncontrolled trials** with
+`docs/fixation-demo.html`. It is offered as an adjustable preference, not a scientific
+finding, validated remedy, or demonstrated benefit for other readers.
+
+`Settings.comfort` is a nested object. Settings schema version 3 migrates v2 (and older)
+objects to a complete comfort block with shipped defaults, never the preset. Version 3
+partial blocks deep-merge defaults; malformed values are defaulted or bounded.
+
+| Field | Shipped default | Reading comfort preset |
+|---|---|---|
+| `saturation` | 100% (the exact §3.3 red) | 25% |
+| `weight` | 400 | 800 |
+| `hue` | off | on |
+| `hueDegrees`, `huePeriodSeconds` | ±10°, 30 s | same |
+| `pulse` | off | on |
+| `pulseTrigger` | natural pauses | same |
+| `pulseDwellMs` | 320 ms | same |
+| `pulseGapSeconds` | 1 s | same |
+| `pulseDurationSeconds` | 1 s | same |
+| `pulseEverySeconds` (timer mode only) | 11 s | same |
+| `pulseSaturation`, `pulseLightness` | 75%, 0 | same |
+| `drift` | off | on |
+| `driftPercent`, `driftMinutes` | 1% frame-width radius, 4-minute cycle | same |
+| `jitter`, `microBlank`, `restNudge`, `neutral` | all off | all off |
+
+Nominal weights 400/600/700/800 use strokes of 0/0.2/0.35/0.5 CSS px in the unchanged
+1ch ORP box, with font weight still 400. Neither the glyph's advance nor the post-span
+position changes. No font is embedded or fetched: the single-width
+`"JetBrainsMono Nerd Font Mono", "JetBrains Mono"` system families precede the existing
+monospaced stack (§3.2), silently falling back if absent. Plain Nerd Font and proportional
+variants must not be substituted.
+
+**Demo colour semantics.** With default saturation and all colour cycles off, use the
+exact §3.3 hex palette. Otherwise baseline HSL saturation is 98 × saturation/100 in light
+theme, 100 × saturation/100 in dark theme. Hue is 353° (light) or 0° (dark), plus the
+optional sinusoid of elapsed reading time. Lightness is 41% or 65%. An active pulse
+*replaces* saturation with `pulseSaturation`, adds `pulseLightness`, and caps lightness at
+92%. Neutral colour overrides all colour effects with the ordinary text colour. Auto
+theme follows live system colour-scheme changes.
+
+Natural pauses trigger on engine `endsSentence(token.text)` or on a dwell at least
+`pulseDwellMs`; do not duplicate the punctuation test. The scheduler supplies the actual
+dwell, including the 400 ms start/resume floor. A pulse lasts
+`min(triggering dwell, pulseDurationSeconds × 1000)`, and its start must be at least
+`pulseGapSeconds × 1000` after the previous pulse's start. Sentence-only, long-dwell-only,
+and independent timer triggers are also selectable. Timer mode uses elapsed time modulo
+its interval and caps duration at that interval; it does not use the natural-pause gap.
+No pulse adds time or advances a word.
+
+Hue and drift are continuous sine functions of accumulated active reading time, sampled
+on scheduler ticks and by the demo's 33 ms effect interval only while an enabled effect
+needs updates and reading is playing. No requestAnimationFrame loop or CSS animation is
+added. Pausing freezes accumulated time; restart resets it. Defaults create no effect
+interval. All colour, stroke and common-frame transform writes use CSS custom properties,
+with no layout measurement. Code DOM construction remains restricted to block entry.
+Drift translates the entire Redicle horizontally, keeping words and hashes aligned within
+0.5 CSS px while deliberately relaxing the absolute screen-column ideal of §3.1.
+
+`prefers-reduced-motion: reduce` disables drift and jitter regardless of saved values,
+with both a live media-query guard and a CSS override; the settings panel says when this
+is active. Colour cycles and pulses are unchanged under reduced motion: they are not
+spatial motion, remain individually optional, and damping would silently change the
+selected colour semantics. This is a preference decision, not a claim that everyone will
+find a colour pulse comfortable.
+
+The other stored toggles expose bounded demo behaviours: coherent jitter cycles through
+four directions at 1.5 Hz with a 1 CSS px radius; sentence micro-blanks add 24 ms after
+the full word dwell using the scheduler clock adapter; rest nudges appear every five
+continuous reading minutes and are dismissible without forcing a pause. Pausing resets
+the continuous nudge timer. These toggles remain off in the preset. The broader lab's
+other jitter/blank modes, underline and experimental tuning controls are not part of
+this release. A blank is cancelled on pause/close; disabling it resumes the pending word
+boundary without skipping or shortening exposure.
+
+The v1.5 injected runtime must remain under 20,000 bytes gzipped, stricter than §1.3's ceiling.
+No runtime dependency, permission, remote resource or network request is added.
 
 ---
 
@@ -586,10 +683,11 @@ Persisted in `chrome.storage.sync` under one key, `settings`, as a single object
 
 ```ts
 interface Settings {
-  version: 2;
+  version: 3;
   wpm: number;              // 150–1000, default 350
   fontSize: 20|28|36|48;    // default 36
   theme: 'auto'|'light'|'dark';
+  comfort: ComfortSettings; // §3.8, deep-merged with shipped defaults
   maxWordLen: number;       // default 18
   factors: {                // §2.3 overrides
     sentence: number; clause: number; paragraph: number;

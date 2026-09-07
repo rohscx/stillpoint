@@ -22,6 +22,7 @@ export function mergeSettings(overrides: SettingsOverrides = {}): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...overrides,
+    comfort: { ...DEFAULT_SETTINGS.comfort, ...overrides.comfort },
     factors: {
       ...DEFAULT_SETTINGS.factors,
       ...overrides.factors,
