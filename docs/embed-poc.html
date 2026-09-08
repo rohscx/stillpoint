@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Stillpoint · RSS embed exploration</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f2ed;color:#252a27;font:17px/1.6 system-ui}main{max-width:840px;margin:7vh auto;padding:24px}header small{letter-spacing:.16em;text-transform:uppercase;color:#697569}h1{font-size:clamp(32px,6vw,54px);line-height:1.1;font-weight:550;letter-spacing:-.045em}header p{max-width:630px;color:#5b625b}article{padding:26px 0;border-top:1px solid #ced3c9}article h2{margin:0;font-size:24px}article p{color:#5b625b}.sp-btn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:7px;cursor:pointer;border-radius:10px;background:none;border:1px solid transparent;transition:transform .12s,background .12s}.sp-btn:hover{transform:translateY(-1px)}.v-full{border-color:#c9cec4;background:#fff}.v-full:hover{background:#f7f8f4}.v-simple{background:#314b3b;color:#fff;border-color:#243a2d;border-radius:12px}.v-simple:hover{background:#3b5b47}.v-letter{background:#fff;color:#252a27;border-color:#c9cec4;border-radius:999px;padding:7px 15px}.v-letter:hover{background:#f7f8f4}.vlabel{margin-left:12px;font:13px system-ui;color:#697569;vertical-align:middle}.stillpoint-trigger{border:1px solid #243a2d;border-radius:12px;background:#314b3b;color:#fff;transition:background .12s,transform .12s}.stillpoint-trigger:hover{background:#3b5b47;transform:translateY(-1px)}.stillpoint-trigger--letter{border-radius:999px;padding:7px 15px}.stillpoint-trigger:focus-visible{outline:3px solid #b36133;outline-offset:3px}pre{background:#e7e9e1;padding:16px;overflow:auto;font-size:13px}footer{font-size:13px;color:#697569}details{margin-top:24px}#error{color:#a52323}
+</style></head><body><main>
+<header><small>Stillpoint / design exploration</small><h1>Your articles.<br>A little room to read.</h1><p>A mock RSS reader supplies its own article text. Each button opens the actual Stillpoint Redicle and engine. Close it to choose another article.</p></header>
+<article><small>FIELD NOTES · 2 MIN READ</small><h2>The garden after rain</h2><p>On quiet paths, the smallest changes tell the story of a season.</p><div id="garden"></div></article>
+<article><small>WORKSHOP · 2 MIN READ</small><h2>A clock that keeps its promise</h2><p>Why scheduling against a deadline helps a reading rhythm stay steady.</p><div id="clock"></div></article>
+<article><small>ESSAY · 3 MIN READ</small><h2>The shape of a pause</h2><p>What a sentence ending asks of a reader, and why the eye wants it.</p><div id="pause"></div></article>
+<p id="error" role="alert"></p>
+<pre><code>const reader = createReader();
+button.onclick = () =&gt; reader.open({
+  title: article.title,
+  text: article.text
+});</code></pre>
+<footer>Local text only · no requests · no storage · 350 WPM<br>Space: pause/play · Escape: close · Tab: controls. This is an adapter sketch, not the full extension UI.</footer>
+<details><summary>License and attribution</summary><p>Stillpoint — Copyright 2026 rohscx. Apache-2.0. This exploration adds an adapter and bundles unchanged engine and UI modules. Readability is not included.</p><p>Stillpoint is an independent reimplementation of a reading technique popularised by Spritz Inc. It is not affiliated with, endorsed by, or derived from any Spritz Inc. source code. “Spritz” is referenced only to describe what this software does.</p><pre>
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+</pre></details>
+</main>
+<!-- Generated by docs/build-embed-poc.mjs from docs/embed-poc.ts and actual src modules. -->
+<script>"use strict";var StillpointPOC=(()=>{var L=Object.defineProperty;var j=Object.getOwnPropertyDescriptor;var G=Object.getOwnPropertyNames;var U=Object.prototype.hasOwnProperty;var K=(r,e)=>{for(var t in e)L(r,t,{get:e[t],enumerable:!0})},V=(r,e,t,n)=>{if(e&&typeof e=="object"||typeof e=="function")for(let i of G(e))!U.call(r,i)&&i!==t&&L(r,i,{get:()=>e[i],enumerable:!(n=j(e,i))||n.enumerable});return r};var Y=r=>V(L({},"__esModule",{value:!0}),r);var ve={};K(ve,{createReader:()=>xe,createTrigger:()=>ye});var I={saturation:100,weight:400,hue:!1,hueDegrees:10,huePeriodSeconds:30,pulse:!1,pulseTrigger:"natural",pulseDwellMs:320,pulseGapSeconds:1,pulseDurationSeconds:1,pulseEverySeconds:11,pulseSaturation:75,pulseLightness:0,drift:!1,driftPercent:1,driftMinutes:4,jitter:!1,microBlank:!1,restNudge:!1,neutral:!1},ke={...I,saturation:25,weight:800,hue:!0,pulse:!0,drift:!0},x={version:3,wpm:350,fontSize:36,theme:"auto",maxWordLen:18,factors:{sentence:2.5,clause:1.8,paragraph:1.4,longWord:.05,numeric:1.4,paraStart:1.2,codeLine:1},comfort:{...I},position:null,autoRewindOnResume:!0,hideControlsWhilePlaying:!0};var J=/^["'“‘«‹([{（［｛]+/u;function X(r){return!Number.isFinite(r)||r<=1?0:r<=5?1:r<=9?2:r<=13?3:4}function N(r){let e=Array.from(r);if(e.length===0)return 0;let t=r.match(J)?.[0],n=t===void 0?0:Array.from(t).length;return Math.min(e.length-1,n+X(e.length-n))}var q=/["'”’»›)\]}）］｝]+$/u,Q=/^(?:[\p{L}]\.){2,}$/u,Z=new Set(["dr.","mr.","mrs.","ms.","prof.","sr.","jr.","st.","vs.","etc.","e.g.","i.e.","a.m.","p.m."]);function A(r={}){return{...x,...r,comfort:{...x.comfort,...r.comfort},factors:{...x.factors,...r.factors}}}function O(r){return r.replace(q,"")}function P(r){let e=O(r),t=e.toLocaleLowerCase();return Z.has(t)||Q.test(e)?!1:/(?:\.\.\.|[.!?…])$/u.test(e)}function ee(r){let e=O(r);return/[,;:—]$/u.test(e)&&!/^[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/u.test(e)}function F(r,e={},t={}){let n={...x.factors,...e},i=1;P(r)?i*=n.sentence:ee(r)&&(i*=n.clause),t.endsParagraph===!0&&(i*=n.paragraph);let a=Array.from(r).length;return a>8&&(i*=Math.min(1.5,1+(a-8)*n.longWord)),new RegExp("\\p{N}","u").test(r)&&(i*=n.numeric),t.startsParagraph===!0&&(i*=n.paraStart),i}function R(r,e){if(!Number.isFinite(e)||e<=0)throw new RangeError("wpm must be a positive finite number");if(r.kind==="code"){let t=Array.from(r.text).length;return Math.min(2147483647,Math.max(320,6e4/e*(1.1+t/34))*r.delayFactor)}return Math.min(2147483647,6e4/e*r.delayFactor)}var te=/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u,ne=/[\p{Script=Arabic}\p{Script=Hebrew}]/u,H=new RegExp("^\\p{L}$","u"),v=/^[\p{L}\p{N}]$/u,re=new RegExp(`^(?:[<"'\xAB\u2039\u201C\u2018\u201A\u201E]|\\p{Ps}|\\p{Pi})$`,"u"),W=/^[aeiouyà-öø-ÿāăąǎǟ-ǿȁ-ȳ]$/iu;function se(r){if(typeof r!="string")throw new TypeError("text must be a string");let e=Array.from(r).filter(i=>!/\s/u.test(i));return e.length===0?"latin":e.filter(i=>te.test(i)).length/e.length>.3?"cjk":e.filter(i=>ne.test(i)).length/e.length>.3?"rtl":"latin"}function z(r){for(let e of r.split(/\r?\n[ \t]*\r?\n/u)){let t=se(e);if(t!=="latin")return t}}function ie(r,e){let t=r[e-1],n=r[e];return t===void 0||n===void 0||!H.test(t)||!H.test(n)?!1:W.test(t)!==W.test(n)}var oe=/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;function ae(r){return Array.from(r.replace(oe,"")).length}var le=65536;function de(r,e,t){let n=r.length,i=s=>s===n||e[s]===!0,a=new Uint32Array(n+1),o=new Uint32Array(n+1);for(let s=0;s<n;s+=1)a[s+1]=v.test(r[s]??"")?a[s]??s:s+1;o[n]=n;for(let s=n-1;s>=0;s-=1)o[s]=v.test(r[s]??"")?o[s+1]??s:s;let c=s=>s-(a[s]??s)>=3&&(o[s]??s)-s>=3,d=new Array(n+1).fill(void 0);d[n]={hyphens:0,chunks:0,score:0,next:n};for(let s=n-1;s>=0;s-=1){let l;for(let u=s+1;u<=Math.min(n,s+t);u+=1){let h=i(u)?0:1;if(h===1&&!c(u)||u-s+h>t)continue;let g=d[u];if(g===void 0)continue;let b=h===1&&!ie(r,u)?.3:0,f={hyphens:g.hyphens+h,chunks:g.chunks+1,score:g.score+(u-s)**2+b,next:u};(l===void 0||f.hyphens<l.hyphens||f.hyphens===l.hyphens&&f.chunks<l.chunks||f.hyphens===l.hyphens&&f.chunks===l.chunks&&f.score<l.score)&&(l=f)}d[s]=l}if(d[0]===void 0)return;let p=[];for(let s=0;s<n;){let l=d[s];if(l===void 0)return;p.push(l.next),s=l.next}return p}function pe(r,e){let t=Array.from(r.text),n=new Array(t.length+1).fill(!1),i=-1;for(let s=0;s<t.length;s+=1)v.test(t[s]??"")&&(i=s);let a=0;for(;a<t.length;){for(;a<t.length&&!v.test(t[a]??"");)a+=1;for(;a<t.length&&v.test(t[a]??"");)a+=1;for(;a<t.length;){let s=t[a]??"";if(v.test(s)||re.test(s)&&a<i)break;a+=1}n[a]=!0}let o=de(t,n,e);if(o===void 0)return;let c=[0];for(let s of t)c.push((c.at(-1)??0)+s.length);let d=[],p=0;for(let s of o){let l=s!==t.length&&n[s]!==!0;d.push({text:t.slice(p,s).join("")+(l?"-":""),paraIdx:r.paraIdx,sourceIdx:r.sourceIdx+(r.originalOffsets?.[c[p]??0]??c[p]??0)}),p=s}return d}function ce(r,e){let t=pe(r,e);return t!==void 0?t:[r]}function ue(r){let e=[],t=/[^\s\u00a0]+/gu,n=0,i=0;for(let a of r.matchAll(t)){let o=a.index,c=r.slice(n,o).replace(/\r\n?/gu,`
+`);e.length>0&&/\n[ \t\u00a0]*\n/u.test(c)&&(i+=1);let d=a[0];if(Array.from(d).length>le)throw new RangeError("A token exceeds the 65,536-glyph limit");let p=d.normalize("NFC"),s={text:p,paraIdx:i,sourceIdx:o};if(p!==d){let l=[];for(let u of new Intl.Segmenter().segment(d)){let h=u.segment.normalize("NFC");for(let g=0;g<h.length;g+=1)l.push(u.index)}s.originalOffsets=l}e.push(s),n=o+d.length}return e}function he(r,e,t,n,i){let a=e.maxWordLen??x.maxWordLen,o=ue(r).flatMap(s=>ae(s.text)>a?ce(s,a):[s]),c=[],d=n;for(let s=0;s<o.length;s+=1){let l=o[s];if(l===void 0)continue;let u=o[s-1],h=o[s+1],g=u===void 0||u.paraIdx!==l.paraIdx,b=h===void 0||h.paraIdx!==l.paraIdx,f={kind:"word",text:l.text,orp:N(l.text),delayFactor:F(l.text,e.factors,{startsParagraph:g,endsParagraph:b}),sentenceIdx:d,paraIdx:t+l.paraIdx,sourceIdx:i+l.sourceIdx};c.push(f),P(l.text)&&(d+=1)}let p=o.at(-1);return{tokens:c,paraCount:p===void 0?0:p.paraIdx+1,sentenceCount:d-n}}function D(r,e={}){if(typeof r!="string"&&!Array.isArray(r))throw new TypeError("input must be a string or an array of blocks");let t=e.maxWordLen??x.maxWordLen;if(!Number.isInteger(t)||t<2||t>256)throw new RangeError("maxWordLen must be an integer from 2 to 256");let n=typeof r=="string"?[{kind:"text",text:r}]:r,i=[],a=0,o=0,c=0,d=0;for(let p of n){if(p.kind==="text"){let u=he(p.text,e,a,o,c);i.push(...u.tokens),a+=u.paraCount,o+=u.sentenceCount,c+=p.text.length+2;continue}i.at(-1)?.sentenceIdx===o&&(o+=1);let s=p.lang===void 0?{id:d,lines:p.lines}:{id:d,lines:p.lines,lang:p.lang},l=c;for(let[u,h]of p.lines.entries())i.push({kind:"code",text:h,delayFactor:e.factors?.codeLine??x.factors.codeLine,sentenceIdx:o,paraIdx:a,sourceIdx:l,block:s,lineIdx:u}),l+=h.length+1;d+=1,a+=1,o+=1,c=l+1}return i}function me(){return globalThis}function fe(){let r=me();return{now:()=>r.performance.now(),setTimer:(e,t)=>r.setTimeout(e,t),clearTimer:e=>r.clearTimeout(e)}}var w=class{#n;#r;#d=new Set;#p=new Set;#c=new Set;#t;#e=0;#s=-1;#i=!1;#a;#l=0;#o;constructor(e,t={}){this.#n=e,this.#t=A(t.settings);let n=fe();this.#r={now:t.clock?.now??n.now,setTimer:t.clock?.setTimer??n.setTimer,clearTimer:t.clock?.clearTimer??n.clearTimer}}get isPlaying(){return this.#i}get wpm(){return this.#t.wpm}get index(){return this.#s>=0?this.#s:this.#e}on(e,t){let n=e==="tick"?this.#d:e==="paused"?this.#p:this.#c;return n.add(t),()=>n.delete(t)}play(){if(this.#i)return;let e=this.#r.now();if(this.#o!==void 0&&e-this.#o>3e3&&this.#t.autoRewindOnResume&&(this.#e=Math.max(0,this.#e-3)),this.#o=void 0,this.#e>=this.#n.length&&(this.#e=0),this.#n.length===0){this.#y();return}this.#i=!0,this.#u(!0)}pause(e="manual"){if(this.#i){this.#g(),this.#i=!1,this.#o=this.#r.now();for(let t of this.#p)t(e)}}seekWord(e){this.#h();let t=this.#s>=0?this.#s:this.#e;this.#e=this.#v(t+Math.trunc(e)),this.#s=this.#e}seekSentence(e){this.#x("sentenceIdx",e)}seekParagraph(e){this.#x("paraIdx",e)}restart(){this.#h(),this.#e=0,this.#s=-1}rewindSentence(){this.#h();let e=this.#n[this.index];if(e===void 0){this.#e=0;return}this.#e=this.#b("sentenceIdx",e.sentenceIdx),this.#s=this.#e}setWpm(e){if(!Number.isFinite(e))throw new TypeError("wpm must be a finite number");this.#t={...this.#t,wpm:Math.min(1e3,Math.max(150,e))}}#u(e){let t=this.#n[this.#e];if(t===void 0){this.#i=!1,this.#y();return}let n=this.#e;this.#e+=1,this.#s=n;let i=R(t,this.#t.wpm),a=e?Math.max(400,i):i;for(let o of this.#d)o(t,n,a);this.#l=e?this.#r.now()+a:this.#l+a,this.#m()}#m(){this.#a=this.#r.setTimer(()=>this.#f(),Math.max(0,this.#l-this.#r.now()))}#f(){if(this.#a=void 0,!this.#i)return;let e=this.#r.now(),t=e-this.#l;if(t>2e3){this.pause("stalled");return}let n=6e4/this.#t.wpm;t>n&&(this.#l=e),this.#u(!1)}#g(){this.#a!==void 0&&(this.#r.clearTimer(this.#a),this.#a=void 0)}#h(){this.#i&&this.pause("manual"),this.#o=void 0}#v(e){return Math.min(Math.max(e,0),Math.max(0,this.#n.length-1))}#x(e,t){this.#h();let n=this.#n[this.index];if(n===void 0)return;let i=Math.max(0,n[e]+Math.trunc(t));this.#e=this.#b(e,i),this.#s=this.#e}#b(e,t){let n=this.#n.findIndex(i=>i[e]>=t);return n<0?Math.max(0,this.#n.length-1):n}#y(){for(let e of this.#c)e()}};var _=`:host {
+  --sp-bg: #ffffff;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-scrim: rgba(244, 242, 239, 0.985);
+  --sp-ui: #8a8783;
+  --sp-font-size: 36px;
+  --sp-font-stack: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sp-line-height: 1.2;
+  --sp-frame-width: clamp(320px, 32ch, 720px);
+  --sp-frame-height: 6.6em;
+  --sp-frame-radius: 4px;
+  --sp-frame-padding-y: 0.75em;
+  --sp-frame-padding-x: 1ch;
+  --sp-rule-width: 1px;
+  --sp-hash-length: 0.45em;
+  --sp-orp-column: 35%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --sp-bg: #1b1e23;
+    --sp-fg: #e8e6e3;
+    --sp-orp: #ff4a4a;
+    --sp-rule: #3a3d42;
+    --sp-scrim: rgba(10, 11, 13, 0.985);
+    --sp-ui: #6e7278;
+  }
+}
+
+:host([data-theme='light']) {
+  --sp-bg: #ffffff;
+  --sp-fg: #1a1a1a;
+  --sp-orp: #d0021b;
+  --sp-rule: #c9c6c1;
+  --sp-scrim: rgba(244, 242, 239, 0.985);
+  --sp-ui: #8a8783;
+}
+
+:host([data-theme='dark']) {
+  --sp-bg: #1b1e23;
+  --sp-fg: #e8e6e3;
+  --sp-orp: #ff4a4a;
+  --sp-rule: #3a3d42;
+  --sp-scrim: rgba(10, 11, 13, 0.985);
+  --sp-ui: #6e7278;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.sp-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: var(--sp-fg);
+  background: var(--sp-scrim);
+  font-family: var(--sp-font-stack);
+  font-size: var(--sp-font-size);
+  font-variant-ligatures: none;
+  font-kerning: none;
+  font-feature-settings: "tnum";
+  line-height: var(--sp-line-height);
+}
+
+.sp-reader {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  width: var(--sp-frame-width);
+  transform: translate(-50%, -50%);
+}
+
+.sp-reader-chrome {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+}
+
+.sp-redicle {
+  transform: var(--sp-comfort-transform, none);
+  position: relative;
+  width: 100%;
+  height: var(--sp-frame-height);
+  padding: var(--sp-frame-padding-y) var(--sp-frame-padding-x);
+  overflow: hidden;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  background: var(--sp-bg);
+  font-weight: 400;
+  letter-spacing: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sp-redicle.sp-dragging { cursor: grabbing; }
+
+.sp-rule {
+  position: absolute;
+  right: var(--sp-frame-padding-x);
+  left: var(--sp-frame-padding-x);
+  height: var(--sp-rule-width);
+  background: var(--sp-rule);
+}
+
+.sp-rule-top {
+  top: var(--sp-frame-padding-y);
+}
+
+.sp-rule-bottom {
+  bottom: var(--sp-frame-padding-y);
+}
+
+.sp-hash {
+  position: absolute;
+  left: var(--sp-orp-column);
+  width: var(--sp-rule-width);
+  height: var(--sp-hash-length);
+  transform: translateX(-50%);
+  background: var(--sp-rule);
+}
+
+.sp-hash-top {
+  top: 0;
+}
+
+.sp-hash-bottom {
+  bottom: 0;
+}
+
+.sp-word-row {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-frame-padding-x);
+  left: var(--sp-frame-padding-x);
+  height: 1.2em;
+  transform: translateY(-50%);
+}
+
+.sp-word {
+  width: 1ch;
+  position: absolute;
+  left: var(--sp-orp-column);
+  transform: translateX(-0.5ch);
+  white-space: pre;
+}
+
+.sp-pre {
+  position: absolute;
+  right: 100%;
+}
+
+.sp-orp {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  color: var(--sp-comfort-color, var(--sp-orp));
+  -webkit-text-stroke: var(--sp-orp-stroke, 0px) currentColor;
+}
+
+.sp-post {
+  position: absolute;
+  left: 100%;
+}
+
+.sp-code-panel {
+  display: none;
+}
+
+.sp-redicle.sp-code-mode {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-height: 60vh;
+  cursor: grab;
+}
+
+.sp-code-mode .sp-rule,
+.sp-code-mode .sp-word-row {
+  display: none;
+}
+
+.sp-code-mode .sp-code-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: 0.38em;
+}
+
+.sp-code-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 2ch;
+  padding-bottom: 0.6em;
+  color: var(--sp-ui);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sp-code-view {
+  min-height: 0;
+  overflow: auto;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+.sp-code-line {
+  min-height: 1.45em;
+  padding: 0 0.4ch;
+  opacity: 0.34;
+}
+
+.sp-code-line.sp-code-current {
+  background: color-mix(in srgb, var(--sp-orp) 13%, transparent);
+  opacity: 1;
+}
+
+.sp-progress {
+  width: 100%;
+  height: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--sp-rule) 55%, transparent);
+}
+
+.sp-progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--sp-ui);
+}
+
+.sp-controls {
+  color: var(--sp-ui);
+  font-family: var(--sp-font-stack);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  transition: opacity 400ms linear;
+}
+
+.sp-controls.sp-idle {
+  opacity: 0;
+}
+
+.sp-status {
+  min-height: 1.4em;
+  margin: 8px 0;
+}
+
+.sp-transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sp-button,
+.sp-slider {
+  color: inherit;
+  accent-color: var(--sp-orp);
+  font: inherit;
+}
+
+.sp-button {
+  min-width: 30px;
+  padding: 4px 6px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  background: var(--sp-bg);
+  cursor: pointer;
+}
+
+.sp-button:focus-visible,
+.sp-slider:focus-visible {
+  outline: 2px solid var(--sp-orp);
+  outline-offset: 2px;
+}
+
+.sp-slider {
+  width: 120px;
+}
+
+.sp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: pre-wrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-controls {
+    transition: none;
+  }
+
+  .sp-controls.sp-idle {
+    opacity: 1;
+  }
+}
+
+/* Paste fallback (SPEC \xA74). Kept separate from the Redicle rules above. */
+.sp-paste {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  background: var(--sp-bg);
+  font-size: 13px;
+}
+
+.sp-paste-textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 10px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  color: var(--sp-fg);
+  background: var(--sp-bg);
+  font: 14px/1.5 sans-serif;
+}
+
+.sp-paste-actions {
+  text-align: right;
+}
+
+.sp-paste-actions .sp-button { margin-left: 8px; }
+
+.sp-panel-title,
+.sp-panel-message {
+  margin: 0;
+}
+
+.sp-panel-title {
+  color: var(--sp-fg);
+  font: 600 16px/1.4 sans-serif;
+}
+
+.sp-panel-message {
+  color: var(--sp-ui);
+  font: 14px/1.5 sans-serif;
+}
+
+.sp-settings,
+.sp-error {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--sp-frame-radius);
+  color: var(--sp-ui);
+  background: var(--sp-bg);
+  font: 13px/1.4 sans-serif;
+}
+
+.sp-settings[hidden] { display: none; }
+
+.sp-settings-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sp-settings-fields label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.sp-settings-fields input,
+.sp-settings-fields select {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--sp-rule);
+  border-radius: 4px;
+  color: var(--sp-fg);
+  background: var(--sp-bg);
+  font: inherit;
+}
+
+.sp-settings-fields input:focus-visible,
+.sp-settings-fields select:focus-visible {
+  outline: 2px solid var(--sp-orp);
+  outline-offset: 2px;
+}
+
+.sp-settings-actions { margin-top: 12px; text-align: right; }
+.sp-settings-actions .sp-button + .sp-button { margin-left: 8px; }
+
+.sp-settings-error { margin: 8px 0 0; }
+.sp-version { margin: 12px 0 0; font-size: 11px; }
+
+.sp-error {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.sp-error .sp-button { justify-self: end; }
+
+.sp-comfort-blank { visibility: hidden; }
+.sp-rest-nudge[hidden] { display: none; }
+.sp-comfort-details { margin-top: 8px; }
+.sp-comfort-details summary { cursor: pointer; }
+.sp-comfort-fields { display: grid; gap: 6px; margin-top: 8px; }
+.sp-comfort-fields label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sp-comfort-fields input[type=number] { width: 72px; }
+.sp-comfort-note { font-size: 12px; margin: 8px 0; }
+.sp-settings {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(600px, calc(100vh - 32px));
+  margin-top: 0;
+  overflow-y: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-redicle { transform: none !important; }
+}
+`;function B(r){return Array.from(r.querySelectorAll('summary, button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(t=>t.closest("[hidden]")===null&&(t.matches("summary")||t.closest("details:not([open])")===null))}var k=class{elements;#n;#r;#d;#p;#c=!1;constructor(e,t){this.#n=document.activeElement,this.#r=document.documentElement.style.overflow,this.#d=window.scrollY;let n=document.createElement("div");n.setAttribute("role","dialog"),n.setAttribute("aria-modal","true"),n.setAttribute("aria-label","Stillpoint reader"),n.style.setProperty("all","initial","important"),n.style.setProperty("position","fixed","important"),n.style.setProperty("inset","0","important"),n.style.setProperty("z-index","2147483647","important"),this.#t(n,e),n.style.setProperty("--sp-font-size",`${t}px`);let i=n.attachShadow({mode:"closed"}),a=new CSSStyleSheet;a.replaceSync(_),i.adoptedStyleSheets=[a];let o=document.createElement("div");o.className="sp-overlay";let c=document.createElement("main");c.className="sp-reader";let d=document.createElement("div");d.className="sp-visually-hidden",d.setAttribute("role","document"),o.append(c,d),i.append(o),document.documentElement.append(n),document.documentElement.style.overflow="hidden",this.#p=p=>{p instanceof KeyboardEvent&&this.#e(p)},i.addEventListener("keydown",this.#p,{capture:!0}),this.elements={host:n,shadowRoot:i,reader:c,fullText:d}}focus(){B(this.elements.shadowRoot)[0]?.focus()}setTheme(e){this.#t(this.elements.host,e)}setFontSize(e){this.elements.host.style.setProperty("--sp-font-size",`${e}px`)}close(){this.#c||(this.#c=!0,this.elements.shadowRoot.removeEventListener("keydown",this.#p,{capture:!0}),this.elements.host.remove(),this.#r===""?document.documentElement.style.removeProperty("overflow"):document.documentElement.style.overflow=this.#r,window.scrollTo(0,this.#d),this.#n instanceof HTMLElement&&this.#n.focus())}#t(e,t){t==="auto"?e.removeAttribute("data-theme"):e.dataset.theme=t}#e(e){if(e.key!=="Tab")return;let t=B(this.elements.shadowRoot),n=t[0],i=t[t.length-1];if(n===void 0||i===void 0){e.preventDefault();return}let a=this.elements.shadowRoot.activeElement;e.shiftKey&&(a===n||a===null)?(e.preventDefault(),i.focus()):!e.shiftKey&&a===i&&(e.preventDefault(),n.focus())}};var T=class{element;#n;#r;#d;#p;#c;#t;#e;#s;#i=[];#a;#l=1;#o=0;#u=1;constructor(e,t=()=>{}){let n=e.createElement("div");n.className="sp-redicle",n.setAttribute("aria-hidden","true");let i=e.createElement("div");i.className="sp-rule sp-rule-top";let a=e.createElement("div");a.className="sp-rule sp-rule-bottom";let o=e.createElement("div");o.className="sp-hash sp-hash-top";let c=e.createElement("div");c.className="sp-hash sp-hash-bottom",i.append(o),a.append(c);let d=e.createElement("div");d.className="sp-word-row";let p=e.createElement("div");p.className="sp-word",this.#n=e.createElement("span"),this.#n.className="sp-pre",this.#r=e.createElement("span"),this.#r.className="sp-orp",this.#d=e.createElement("span"),this.#d.className="sp-post",p.append(this.#n,this.#r,this.#d),d.append(p);let s=e.createElement("section");s.className="sp-code-panel";let l=e.createElement("header");l.className="sp-code-header",this.#p=e.createElement("span"),this.#c=e.createElement("span"),l.append(this.#p,this.#c),this.#t=e.createElement("div"),this.#t.className="sp-code-view",this.#t.addEventListener("scroll",()=>{this.#o=Math.ceil(this.#t.scrollTop/this.#l)}),s.append(l,this.#t),n.append(i,a,d,s),this.element=n,this.#e=new ResizeObserver(()=>{this.#m(),t()}),this.#e.observe(n),this.#e.observe(this.#t)}destroy(){this.#e.disconnect()}#m(){this.#s!==void 0&&(this.#l=Math.max(1,this.#i[0]?.getBoundingClientRect().height??1),this.#o=Math.ceil(this.#t.scrollTop/this.#l),this.#u=Math.max(1,Math.floor(this.#t.clientHeight/this.#l)),this.#a!==void 0&&this.#f(Number(this.#a.dataset.line)))}#f(e){(e<this.#o||e>=this.#o+this.#u)&&(this.#o=e<this.#o?e:e-this.#u+1,this.#t.scrollTop=this.#o*this.#l)}render(e){e.kind==="code"?this.#h(e):this.#g(e)}#g(e){this.element.classList.remove("sp-code-mode"),this.#s=void 0,this.#a=void 0;let t=Array.from(e.text);this.#n.textContent=t.slice(0,e.orp).join(""),this.#r.textContent=t[e.orp]??"",this.#d.textContent=t.slice(e.orp+1).join("")}#h(e){if(this.element.classList.add("sp-code-mode"),this.#s!==e.block.id){this.#i=e.block.lines.map((i,a)=>{let o=this.element.ownerDocument.createElement("div");return o.className="sp-code-line",o.dataset.line=a.toString(),o.textContent=i,o}),this.#t.replaceChildren(...this.#i);let n=e.block.lang??"code";this.#p.textContent=`${n} \xB7 ${e.block.lines.length} lines`,this.#s=e.block.id,this.#a=void 0,this.#t.scrollTop=0,this.#t.scrollLeft=0,this.#m()}let t=this.#i[e.lineIdx];t!==void 0&&(this.#a?.classList.remove("sp-code-current"),t.classList.add("sp-code-current"),this.#a=t,this.#c.textContent=`line ${e.lineIdx+1} / ${e.block.lines.length}`,this.#f(e.lineIdx))}};function xe(){let r;return{open({text:e,title:t="Stillpoint reader"}){if(typeof e!="string"||!e.trim()||e.length>2e5)throw new TypeError("Supply 1\u2013200,000 characters of plain text.");if(z(e))throw new TypeError("This prototype supports Latin-script prose.");let n=D(e);r?.();let i=new k("light",36),a=new T(document),o=new w(n),{reader:c,fullText:d,host:p,shadowRoot:s}=i.elements;p.setAttribute("aria-label",t),d.textContent=e;let l=document.createElement("h2");l.textContent=t,l.style.cssText="font:600 16px system-ui;margin:0 0 16px;color:var(--sp-fg)";let u=document.createElement("div");u.style.cssText="display:flex;flex-wrap:wrap;gap:12px;align-items:center;font:14px system-ui;margin-top:18px";let h=(m,S,$)=>{let y=document.createElement("button");return y.type="button",y.textContent=S,y.setAttribute("aria-label",m),y.style.cssText="font:inherit;min-width:30px;padding:4px 6px;cursor:pointer;color:var(--sp-ui);background:var(--sp-bg);border:1px solid var(--sp-rule);border-radius:4px",y.onclick=$,u.append(y),y},g=()=>{o.isPlaying?o.pause():o.play(),b.setAttribute("aria-label",o.isPlaying?"Pause":"Play")};h("Previous paragraph","\u23EE",()=>o.seekParagraph(-1)),h("Previous word","\u25C0",()=>o.seekWord(-1));let b=h("Pause","\u23EF",g);h("Next word","\u25B6",()=>o.seekWord(1)),h("Next paragraph","\u23ED",()=>o.seekParagraph(1));let f=()=>{o.pause(),a.destroy(),document.removeEventListener("visibilitychange",C),s.removeEventListener("keydown",M,!0),i.close(),r=void 0};h("Close reader","\u2715",f);let E=document.createElement("span");u.append(E);let C=()=>{document.hidden&&o.pause()},M=m=>{if(m instanceof KeyboardEvent&&!(m.ctrlKey||m.metaKey||m.altKey||m.isComposing)&&(m.key==="Escape"||m.key===" ")){if(m.preventDefault(),m.stopPropagation(),m.repeat)return;m.key==="Escape"?f():g()}};o.on("tick",(m,S)=>{a.render(m),E.textContent=`${S+1} / ${n.length} \xB7 350 WPM`}),o.on("paused",()=>{b.textContent="Play"}),o.on("finished",()=>{b.textContent="Read again"}),c.append(l,a.element,u),c.style.width="min(720px, calc(100vw - 32px))",s.addEventListener("keydown",M,!0),document.addEventListener("visibilitychange",C),r=f,i.focus(),o.play()},close(){r?.()},destroy(){r?.()}}}var be={mark:'<svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true" focusable="false"><rect x="3" y="7.5" width="26" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="3" y="22.5" width="26" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="13.2" y="11.5" width="5.6" height="9" rx="1.4" fill="#d0021b"/></svg>',letter:'<svg viewBox="0 0 44 32" width="34" height="25" aria-hidden="true" focusable="false"><text x="22" y="23" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="19" font-weight="600" fill="currentColor">r<tspan fill="#d0021b">e</tspan>ad</text></svg>'};function ye(r,e){let t=e.variant??"mark",n=e.label??"Read with Stillpoint",i=document.createElement("button");return i.type="button",i.className=`stillpoint-trigger stillpoint-trigger--${t}`,i.setAttribute("aria-label",n),i.title=n,i.innerHTML=be[t],i.style.cssText="display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:7px;cursor:pointer",i.addEventListener("click",()=>r.open({title:e.title,text:e.text})),i}return Y(ve);})();
+</script>
+<script>
+const { createReader, createTrigger } = StillpointPOC;
+const reader = createReader();
+const articles = {
+  garden: {title: 'The garden after rain', text: 'Rain had stopped before sunrise. Along the garden path, drops clung to the edges of broad green leaves. A blackbird turned the wet soil beside the fence, stopping now and then to listen.\n\nMara carried her tea outside and sat beneath the apple tree. Yesterday the ground had been hard and dusty. Today it smelled of roots and new growth. She had planned to spend the morning clearing the beds, but the garden seemed to ask for a slower kind of attention.\n\nAt the far end of the path, a small yellow flower had opened. Nobody had planted it. For a moment, that was enough.'},
+  clock: {title: 'A clock that keeps its promise', text: 'Every reading rhythm begins with a deadline. A word appears, stays long enough to be recognised, and makes room for the next. At three hundred and fifty words per minute, even a small scheduling error can become noticeable.\n\nA timer that always starts counting after the previous callback finishes gradually slips behind. An absolute deadline gives each word a place on the same timeline. When a callback arrives a little late, the next wait becomes a little shorter.\n\nBut a background tab is different. If the browser has held the clock for seconds, racing through the missed words would serve nobody. The reader pauses, leaving the next decision to the person reading.'},
+  pause: {title: 'The shape of a pause', text: 'A sentence ending is not empty time. It is where a reader consolidates what the clause just delivered, and decides whether to carry it forward or go back.\n\nRapid serial presentation removes the option of going back. There is no page holding the previous sentence in place, waiting for a second look. Whatever the pause gives, it must give at once.\n\nSo the pause earns its length. A longer sentence has more to settle, and the reader who is given no room simply arrives at the next sentence still holding the last one.'}
+};
+// 'mark' is the default; the essay opts into the letterform.
+const variants = { garden: undefined, clock: undefined, pause: 'letter' };
+for (const [id, article] of Object.entries(articles)) {
+  document.getElementById(id).append(
+    createTrigger(reader, { ...article, variant: variants[id] })
+  );
+}
+</script></body></html>
