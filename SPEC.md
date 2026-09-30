@@ -400,6 +400,18 @@ Below the Redicle, in `--sp-ui` at 13 px:
   in the tick/status path. The effective figure stays fixed while reading or seeking;
   the existing 4 Hz status throttle remains. This prevents peripheral-number flicker
   and keeps article-length work out of rendering.
+
+  **Known trap — do not read the effective figure as the ramp's cost.** Effective WPM
+  sits well below the set WPM *even with the ramp off*, because the §2.3 timing factors
+  (sentence and clause pauses, long words, digits, paragraph starts) already lengthen
+  real prose. On the fixation lab's 3,216-word passage, 350 set WPM reads at ≈300
+  effective with no ramp at all; enabling the recommended ramp takes it to ≈269. The
+  ramp's own share is the difference between those two, about 10%, not the 350→269 gap.
+  Because the readout only appears when the ramp is on, the whole gap is easy to
+  misattribute to it. This was a deliberate choice, kept on purpose: the status line
+  shows the true total, and the §3.8 cost line in settings is the place that isolates the
+  ramp's contribution. If the readout is ever shown with the ramp off, or used to justify
+  a timing change, compare against the ramp-off figure, not the set WPM.
 - On hover or when paused, reveal: ⏮ paragraph · ◀ word · ⏯ · word ▶ · paragraph ⏭,
   a WPM slider, a settings gear, and a close ✕.
 
