@@ -386,6 +386,20 @@ Below the Redicle, in `--sp-ui` at 13 px:
 
 - A progress bar: 2 px, full frame width, filled proportion = tokens consumed / total.
 - A single line: `‹wpm› WPM · ‹n› / ‹total› words · ‹mm:ss› left`.
+  Only when `comfort.ramp` is enabled, insert `· ≈‹effective› effective` after WPM.
+  Effective WPM is the whole article's prose word count × 60000 divided by its total
+  prose duration in ms, rounded to a whole number (zero for no prose). Exclude code
+  from both numerator and denominator; blink alone does not show this readout.
+  A shared pure article-timing calculation supplies effective WPM, remaining time and
+  the §3.8 cost totals: use `tokenDurationMs` with every normal/ramp/blink factor and
+  the existing initial 400 ms floor at article index zero. Code durations remain in
+  time left and article cost. User pauses, resume floors and optional micro-blanks
+  are excluded from these estimates.
+  Cache the article timing, remaining-duration suffix sums and prose counts on article,
+  WPM or comfort-setting changes. Never recompute effective WPM or scan the token list
+  in the tick/status path. The effective figure stays fixed while reading or seeking;
+  the existing 4 Hz status throttle remains. This prevents peripheral-number flicker
+  and keeps article-length work out of rendering.
 - On hover or when paused, reveal: ⏮ paragraph · ◀ word · ⏯ · word ▶ · paragraph ⏭,
   a WPM slider, a settings gear, and a close ✕.
 
@@ -471,7 +485,7 @@ marks and the §3.1 alignment mechanism is unaffected. The alignment test must c
 pass at a non-default position — add a case that proves it.
 
 
-### 3.8 Reading comfort (v1.5.0)
+### 3.8 Reading comfort (v1.6.0)
 
 **Optional, with unchanged shipped defaults.** The in-reader settings panel offers one
 “Reading comfort” button that saves the preset below in one action. Individual controls
@@ -492,12 +506,16 @@ The preset comes from **one person's uncontrolled trials** with
 `docs/fixation-demo.html`. It is offered as an adjustable preference, not a scientific
 finding, validated remedy, or demonstrated benefit for other readers.
 
-`Settings.comfort` is a nested object. Settings schema version 3 migrates v2 (and older)
+`Settings.comfort` is a nested object. Settings schema version 4 migrates v2 (and older)
 objects to a complete comfort block with shipped defaults, never the preset. Version 3
-partial blocks deep-merge defaults; malformed values are defaulted or bounded.
+objects retain existing comfort preferences and default the new ramp and blink fields.
+Version 4 partial blocks deep-merge defaults; malformed values are defaulted or bounded.
 
 | Field | Shipped default | Reading comfort preset |
 |---|---|---|
+| `ramp`, `blink` | both off | both on |
+| `rampCurve`, `rampStart`, `rampWords` | ease-in, 70%, 4 words | same |
+| `blinkMs` | 150 ms | same |
 | `saturation` | 100% (the exact §3.3 red) | 25% |
 | `weight` | 400 | 800 |
 | `hue` | off | on |
@@ -512,6 +530,41 @@ partial blocks deep-merge defaults; malformed values are defaulted or bounded.
 | `drift` | off | on |
 | `driftPercent`, `driftMinutes` | 1% frame-width radius, 4-minute cycle | same |
 | `jitter`, `microBlank`, `restNudge`, `neutral` | all off | all off |
+
+**Post-sentence ramp and blink allowance.** The engine's `endsSentence` defines the
+boundary, so abbreviations such as `Dr.` and `e.g.` do not trigger it. The period word
+itself receives no new ramp from its own boundary. For following words k = 0 … N−1,
+speed is `s + (1 − s) × f(k/N)` of set speed, where s = rampStart/100. Linear uses
+f(t)=t, ease-out uses 1−(1−t)², ease-in uses t², and first-word-only forces N=1.
+Interpolate in speed space so these curves describe the requested speed recovery;
+interpolating duration instead would produce a different speed curve. Divide the normal
+`delayFactor` by this speed fraction. Code tokens never ramp and interrupt any ramp.
+A later sentence end restarts the sequence. Article start alone does not trigger it.
+
+Independently, blink allowance gives k=0 a floor of `normalDuration + blinkMs`:
+`duration = max(rampedDuration, normalDuration + blinkMs)`. Tokens retain their normal
+factor and an absolute allowance; pure `tokenDurationMs` evaluates both at current WPM.
+There is no extra timer or Scheduler state. Settings changes re-derive factors in place
+from normal factors, retaining token identities and reading position. The scheduler's
+existing start/resume floor still applies. Bounds are 40–100% start speed, 1–8 integral
+words and 0–1000 ms blink allowance; malformed values default safely.
+
+Blinks cluster at sentence boundaries, supporting an allowance there. The proposed
+“spin-up” rationale for the ramp is weaker: sentence wrap-up cost is already modelled
+by the period dwell. An absolute blink allowance avoids a percentage shrinking below
+blink length at high WPM. Both mechanisms ship off; enabling ramp alone selects ease-in,
+70%, four words. The preset enables both with 150 ms allowance, preserving every other
+preset value. This preference comes from one person's trials, not validated efficacy.
+
+The disclosure contains six controls and a compact inline SVG chart of fraction of set
+speed (0.4–1.0) against word index (0–8): active curve bold, other three faint, with a
+blink point when enabled (labelled if below the axis). Render only on opening the panel
+or settings changes while open, never on ticks or an animation loop. One cost line says
+“Adds about N% to reading time on this article”, comparing summed token durations with
+ramp/blink off at the current WPM, including the initial 400 ms floor in both totals.
+It uses the whole current token list on settings changes/opening, never per tick; it
+excludes optional micro-blanks and user pauses. Empty articles have zero added cost.
+Do not ship the lab's four-way cost table, ramp status indicator or duration logging.
 
 Nominal weights 400/600/700/800 use strokes of 0/0.2/0.35/0.5 CSS px in the unchanged
 1ch ORP box, with font weight still 400. Neither the glyph's advance nor the post-span
@@ -683,7 +736,7 @@ Persisted in `chrome.storage.sync` under one key, `settings`, as a single object
 
 ```ts
 interface Settings {
-  version: 3;
+  version: 4;
   wpm: number;              // 150–1000, default 350
   fontSize: 20|28|36|48;    // default 36
   theme: 'auto'|'light'|'dark';

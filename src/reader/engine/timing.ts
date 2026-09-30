@@ -75,5 +75,7 @@ export function tokenDurationMs(token: Token, wpm: number): number {
     const glyphs = Array.from(token.text).length;
     return Math.min(2_147_483_647, Math.max(320, (60_000 / wpm) * (1.1 + glyphs / 34)) * token.delayFactor);
   }
-  return Math.min(2_147_483_647, (60_000 / wpm) * token.delayFactor);
+  // SPEC §3.8: the absolute allowance is evaluated at the current WPM.
+  const normal = (60_000 / wpm) * (token.normalDelayFactor ?? token.delayFactor);
+  return Math.min(2_147_483_647, Math.max((60_000 / wpm) * token.delayFactor, normal + (token.blinkMs ?? 0)));
 }

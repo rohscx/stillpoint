@@ -12,6 +12,8 @@ export interface WordToken {
   kind: 'word';
   text: string;
   orp: number;
+  normalDelayFactor?: number;
+  blinkMs?: number;
   delayFactor: number;
   sentenceIdx: number;
   paraIdx: number;
@@ -47,6 +49,12 @@ export interface ReaderPosition {
 }
 
 export interface ComfortSettings {
+  ramp: boolean;
+  rampCurve: 'linear' | 'out' | 'in' | 'first';
+  rampStart: number;
+  rampWords: number;
+  blink: boolean;
+  blinkMs: number;
   saturation: number;
   weight: 400 | 600 | 700 | 800;
   hue: boolean;
@@ -70,6 +78,7 @@ export interface ComfortSettings {
 }
 
 export const DEFAULT_COMFORT: Readonly<ComfortSettings> = {
+  ramp: false, rampCurve: 'in', rampStart: 70, rampWords: 4, blink: false, blinkMs: 150,
   saturation: 100, weight: 400,
   hue: false, hueDegrees: 10, huePeriodSeconds: 30,
   pulse: false, pulseTrigger: 'natural', pulseDwellMs: 320,
@@ -80,11 +89,11 @@ export const DEFAULT_COMFORT: Readonly<ComfortSettings> = {
 };
 
 export const READING_COMFORT: Readonly<ComfortSettings> = {
-  ...DEFAULT_COMFORT, saturation: 25, weight: 800, hue: true, pulse: true, drift: true,
+  ...DEFAULT_COMFORT, ramp: true, blink: true, saturation: 25, weight: 800, hue: true, pulse: true, drift: true,
 };
 
 export interface Settings {
-  version: 3;
+  version: 4;
   wpm: number;
   fontSize: 20 | 28 | 36 | 48;
   theme: 'auto' | 'light' | 'dark';
@@ -109,7 +118,7 @@ export interface TokenizeOptions {
 export type Script = 'latin' | 'cjk' | 'rtl';
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
-  version: 3,
+  version: 4,
   wpm: 350,
   fontSize: 36,
   theme: 'auto',

@@ -1,3 +1,4 @@
+import { applyRamp } from './engine/ramp.js';
 import { Scheduler } from './engine/scheduler.js';
 import { mergeSettings } from './engine/timing.js';
 import { tokenize, unsupportedScript } from './engine/tokenize.js';
@@ -82,6 +83,7 @@ function mountReaderInOverlay(
 ): ReaderHandle {
   let settings = initialSettings;
   const tokens = tokenize(blocks, { maxWordLen: settings.maxWordLen, factors: settings.factors });
+  applyRamp(tokens, settings.comfort);
   let drag: Drag | undefined;
   const redicle = new Redicle(document, () => drag?.reclamp(true));
   const comfort = new Comfort(redicle.element, settings);
@@ -133,8 +135,10 @@ function mountReaderInOverlay(
   };
   const applySettings = (next: Settings): void => {
     settings = next;
+    applyRamp(tokens, next.comfort);
     comfort.apply(next);
     scheduler.setWpm(next.wpm);
+    controls.refreshTiming(scheduler.wpm, next.comfort.ramp);
     controls.setHideWhilePlaying(next.hideControlsWhilePlaying);
     overlay.setTheme(next.theme);
     overlay.setFontSize(next.fontSize);
@@ -151,6 +155,8 @@ function mountReaderInOverlay(
   const setWpm = (wpm: number): void => {
     scheduler.setWpm(wpm);
     settings = { ...settings, wpm: scheduler.wpm };
+    controls.refreshTiming(scheduler.wpm, settings.comfort.ramp);
+    settingsPanel?.render(settings);
     renderIndex(scheduler.index);
     persistSettings();
   };
@@ -177,7 +183,7 @@ function mountReaderInOverlay(
     controls.setPlaying(scheduler.isPlaying);
   };
 
-  const controls = new Controls(document, tokens, settings.wpm, {
+  const controls = new Controls(document, tokens, settings.wpm, settings.comfort.ramp, {
     previousParagraph: () => seekParagraph(-1),
     previousWord: () => seekWord(-1),
     togglePlaying,
@@ -197,6 +203,7 @@ function mountReaderInOverlay(
     load: () => loadSettings(),
     save: (patch: ReaderSettingsPatch) => saveSettings({ ...settings, ...patch }),
     apply: applySettings,
+    tokens: () => tokens,
   });
   const chrome = document.createElement('div');
   chrome.className = 'sp-reader-chrome';

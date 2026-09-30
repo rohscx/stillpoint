@@ -1,10 +1,13 @@
+import { rampCostPercent } from '../engine/ramp.js';
+import { renderRampChart } from './ramp-chart.js';
 import { COMFORT_RANGES } from '../../shared/settings.js';
-import { READING_COMFORT, type ComfortSettings, type Settings } from '../../shared/types.js';
+import { READING_COMFORT, type ComfortSettings, type Settings, type Token } from '../../shared/types.js';
 import { extensionVersion } from '../../shared/version.js';
 
 export type ReaderSettingsPatch = Partial<Pick<Settings, 'wpm' | 'theme' | 'fontSize' | 'position' | 'comfort'>>;
 
 export interface SettingsPanelActions {
+  tokens: () => readonly Token[];
   load: () => Promise<Settings>;
   save: (patch: ReaderSettingsPatch) => Promise<Settings>;
   apply: (settings: Settings) => void;
@@ -20,6 +23,9 @@ export class SettingsPanel {
   readonly #comfortControls = new Map<keyof ComfortSettings, HTMLInputElement | HTMLSelectElement>();
   readonly #motion = matchMedia('(prefers-reduced-motion: reduce)');
   readonly #motionNote: HTMLElement;
+  readonly #details: HTMLDetailsElement;
+  readonly #chart: SVGSVGElement;
+  readonly #cost: HTMLElement;
   #comfort: ComfortSettings;
   #returnFocus: HTMLElement | undefined;
 
@@ -101,11 +107,22 @@ export class SettingsPanel {
     preset.addEventListener('click', () => void this.#save({ comfort: { ...READING_COMFORT } }));
     const details = documentRoot.createElement('details');
     details.className = 'sp-comfort-details';
+    this.#details = details;
+    this.#chart = documentRoot.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this.#chart.classList.add('sp-ramp-chart');
+    this.#chart.setAttribute('viewBox', '0 0 560 224');
+    this.#chart.setAttribute('role', 'img');
+    this.#chart.setAttribute('aria-label', 'Post-sentence speed ramp');
+    this.#cost = documentRoot.createElement('p');
+    this.#cost.className = 'sp-ramp-cost';
+    details.addEventListener('toggle', () => this.#renderRamp());
     const summary = documentRoot.createElement('summary');
     summary.textContent = 'Adjust reading comfort';
     const comfortFields = documentRoot.createElement('div');
     comfortFields.className = 'sp-comfort-fields';
     const labels: Record<keyof ComfortSettings, string> = {
+      ramp: 'Speed ramp', rampCurve: 'Ramp curve', rampStart: 'Start speed (%)',
+      rampWords: 'Ramp words', blink: 'Blink allowance', blinkMs: 'Blink allowance (ms)',
       saturation: 'Baseline saturation (%)', weight: 'ORP weight',
       hue: 'Slow hue variation', hueDegrees: 'Hue radius (degrees)', huePeriodSeconds: 'Hue period (seconds)',
       pulse: 'Saturation pulse', pulseTrigger: 'Pulse trigger', pulseDwellMs: 'Long-word dwell (ms)',
@@ -117,14 +134,15 @@ export class SettingsPanel {
     };
     for (const key of Object.keys(labels) as Array<keyof ComfortSettings>) {
       let control: HTMLInputElement | HTMLSelectElement;
-      if (key === 'weight' || key === 'pulseTrigger') {
+      if (key === 'weight' || key === 'pulseTrigger' || key === 'rampCurve') {
         control = documentRoot.createElement('select');
         const options = key === 'weight' ? [['400', '400'], ['600', '600'], ['700', '700'], ['800', '800']]
+          : key === 'rampCurve' ? [['linear', 'Linear'], ['out', 'Ease-out'], ['in', 'Ease-in'], ['first', 'First word only']]
           : [['natural', 'Natural pauses'], ['sentence', 'Sentence ends'], ['long', 'Long words'], ['timer', 'Independent timer']];
         for (const [value, label] of options) {
           const option = documentRoot.createElement('option');
-          option.value = value!;
-          option.textContent = label!;
+          option.value = value ?? '';
+          option.textContent = label ?? '';
           control.append(option);
         }
       } else {
@@ -139,10 +157,12 @@ export class SettingsPanel {
       control.dataset.comfort = key;
       this.#comfortControls.set(key, control);
       comfortFields.append(this.#field(documentRoot, labels[key], control));
+      // The chart illustrates the ramp, so it sits directly under the ramp's own controls.
+      if (key === 'blinkMs') comfortFields.append(this.#chart, this.#cost);
       control.addEventListener('change', () => {
         if (!control.checkValidity()) { control.reportValidity(); return; }
         const value = control instanceof HTMLInputElement && control.type === 'checkbox' ? control.checked
-          : key === 'pulseTrigger' ? control.value : Number(control.value);
+          : key === 'pulseTrigger' || key === 'rampCurve' ? control.value : Number(control.value);
         this.#comfort = { ...this.#comfort, [key]: value };
         void this.#save({ comfort: { ...this.#comfort } });
       });
@@ -180,6 +200,7 @@ export class SettingsPanel {
   open(returnFocus: HTMLElement | undefined): void {
     this.#returnFocus = returnFocus;
     this.element.hidden = false;
+    this.#renderRamp();
     this.#wpm.focus();
     void this.#actions.load().then((settings) => {
       if (!this.isOpen) return;
@@ -216,6 +237,17 @@ export class SettingsPanel {
     this.#wpm.value = settings.wpm.toString();
     this.#theme.value = settings.theme;
     this.#fontSize.value = settings.fontSize.toString();
+    const words = this.#comfortControls.get('rampWords');
+    if (words !== undefined) words.disabled = settings.comfort.rampCurve === 'first';
+    this.#renderRamp();
+  }
+
+  #renderRamp(): void {
+    if (!this.isOpen || !this.#details.open) return;
+    const wpm = this.#wpm.valueAsNumber;
+    renderRampChart(this.#chart, this.#comfort, wpm);
+    const cost = rampCostPercent(this.#actions.tokens(), this.#comfort, wpm);
+    this.#cost.textContent = `Adds about ${Math.round(cost)}% to reading time on this article`;
   }
 
   async #save(patch: ReaderSettingsPatch): Promise<void> {

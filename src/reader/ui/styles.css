@@ -432,3 +432,6 @@
 @media (prefers-reduced-motion: reduce) {
   .sp-redicle { transform: none !important; }
 }
+
+.sp-ramp-chart { display: block; width: 100%; max-width: 560px; font-size: 12px; fill: currentColor; }
+.sp-ramp-cost { font-size: 12px; }

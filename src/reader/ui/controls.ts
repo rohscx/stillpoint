@@ -1,5 +1,5 @@
 import type { Token } from '../../shared/types.js';
-import { tokenDurationMs } from '../engine/timing.js';
+import { articleTiming, type ArticleTiming } from '../engine/article-timing.js';
 
 export interface ControlActions {
   previousParagraph: () => void;
@@ -37,7 +37,8 @@ export class Controls {
   readonly #status: HTMLElement;
   readonly #playButton: HTMLButtonElement;
   readonly #slider: HTMLInputElement;
-  readonly #wordTotal: number;
+  #timing: ArticleTiming;
+  #effective = '';
   #playing = false;
   #hideWhilePlaying = true;
   #lastStatusUpdate = -Infinity;
@@ -47,9 +48,10 @@ export class Controls {
   #idleTimer: number | undefined;
   #stalled = false;
 
-  constructor(documentRoot: Document, tokens: readonly Token[], wpm: number, actions: ControlActions) {
+  constructor(documentRoot: Document, tokens: readonly Token[], wpm: number, ramp: boolean, actions: ControlActions) {
     this.#tokens = tokens;
-    this.#wordTotal = tokens.filter((token) => token.kind === 'word').length;
+    this.#timing = articleTiming(tokens, wpm);
+    this.#effective = ramp ? ` · ≈${Math.round(this.#timing.effectiveWpm)} effective` : '';
     this.#pendingWpm = wpm;
     this.progressElement = documentRoot.createElement('div');
     this.progressElement.className = 'sp-progress';
@@ -99,6 +101,11 @@ export class Controls {
 
     this.element.addEventListener('pointerenter', () => this.#show());
     this.element.addEventListener('pointermove', () => this.#show());
+  }
+
+  refreshTiming(wpm: number, ramp: boolean): void {
+    this.#timing = articleTiming(this.#tokens, wpm);
+    this.#effective = ramp ? ` · ≈${Math.round(this.#timing.effectiveWpm)} effective` : '';
   }
 
   update(index: number, wpm: number): void {
@@ -157,14 +164,12 @@ export class Controls {
   }
 
   #writeStatus(index: number, wpm: number, now: number): void {
-    const remaining = this.#tokens
-      .slice(Math.max(0, index + 1))
-      .reduce((total, token) => total + tokenDurationMs(token, wpm), 0);
+    const remaining = this.#timing.remainingMs[Math.max(0, index + 1)] ?? 0;
     const token = this.#tokens[index];
     const position = token?.kind === 'code'
       ? `line ${token.lineIdx + 1} / ${token.block.lines.length}`
-      : `${this.#tokens.slice(0, Math.max(0, index + 1)).filter((item) => item.kind === 'word').length} / ${this.#wordTotal} words`;
-    const progress = `${wpm} WPM · ${position} · ${remainingLabel(remaining)} left`;
+      : `${this.#timing.wordsThrough[index] ?? 0} / ${this.#timing.proseWords} words`;
+    const progress = `${wpm} WPM${this.#effective} · ${position} · ${remainingLabel(remaining)} left`;
     this.#status.textContent = this.#stalled
       ? `Paused: tab was backgrounded · ${progress}`
       : progress;

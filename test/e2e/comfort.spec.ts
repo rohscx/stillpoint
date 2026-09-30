@@ -54,17 +54,31 @@ test('Reading comfort preset applies every value, persists and stays adjustable'
   expect(await page.evaluate(() => {
     const root = (window as unknown as State).__stillpointShadow;
     return Object.fromEntries(Array.from(root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-comfort]')).map(el => [el.dataset.comfort,
-      el instanceof HTMLInputElement && el.type === 'checkbox' ? el.checked : el.dataset.comfort === 'pulseTrigger' ? el.value : Number(el.value)]));
+      el instanceof HTMLInputElement && el.type === 'checkbox' ? el.checked : el.dataset.comfort === 'pulseTrigger' || el.dataset.comfort === 'rampCurve' ? el.value : Number(el.value)]));
   })).toEqual(READING_COMFORT);
+  expect(READING_COMFORT).toEqual({
+    ramp: true, rampCurve: 'in', rampStart: 70, rampWords: 4, blink: true, blinkMs: 150,
+    saturation: 25, weight: 800, hue: true, hueDegrees: 10, huePeriodSeconds: 30,
+    pulse: true, pulseTrigger: 'natural', pulseDwellMs: 320, pulseGapSeconds: 1,
+    pulseDurationSeconds: 1, pulseEverySeconds: 11, pulseSaturation: 75, pulseLightness: 0,
+    drift: true, driftPercent: 1, driftMinutes: 4, jitter: false, microBlank: false, restNudge: false, neutral: false,
+  });
+  expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-ramp-chart')?.children.length)).toBe(0);
   expect((await sample(page)).stroke).toBe('0.5px');
   await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector<HTMLElement>('summary')!.focus());
   await page.keyboard.press('Space');
   expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('details')!.open)).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelectorAll('.sp-ramp-chart polyline').length)).toBe(4);
+  expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-ramp-chart [data-blink]') !== null)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-ramp-cost')?.textContent)).toMatch(/^Adds about \d+% to reading time on this article$/);
+  const position = (await sample(page)).word;
+
   await page.evaluate(() => {
     const input = (window as unknown as State).__stillpointShadow.querySelector<HTMLInputElement>('[data-comfort="saturation"]')!;
     input.value = '40'; input.dispatchEvent(new Event('change'));
   });
   await expect.poll(() => page.evaluate(() => (window as unknown as State).__comfortStore?.comfort.saturation)).toBe(40);
+  expect((await sample(page)).word).toBe(position);
   await page.keyboard.press('Escape');
   await click(page, '[aria-label="Settings"]');
   expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector<HTMLInputElement>('[data-comfort="saturation"]')!.value)).toBe('40');
@@ -171,4 +185,57 @@ test('active comfort prose ticks perform no geometry reads or DOM construction',
     return { reads: state.__comfortReads, creates: state.__comfortCreates };
   });
   expect(counts).toEqual({ reads: 0, creates: 0 });
+});
+
+
+test('ramp changes preserve a mid-article word and update the open chart and cost', async ({ page }) => {
+  await mount(page, 'Done. one two three four five six', DEFAULT_SETTINGS);
+  await click(page, '[aria-label="Next word"]');
+  await click(page, '[aria-label="Next word"]');
+  const position = (await sample(page)).word;
+  await click(page, '[aria-label="Settings"]');
+  await click(page, 'summary');
+  await page.evaluate(settings => (window as unknown as State).__stillpointHandle.applySettings?.(settings), {
+    ...DEFAULT_SETTINGS, comfort: { ...READING_COMFORT },
+  });
+  expect((await sample(page)).word).toBe(position);
+  await expect.poll(() => page.evaluate(() => {
+    const root = (window as unknown as State).__stillpointShadow;
+    return root.querySelector('.sp-ramp-chart [data-curve="in"]')?.getAttribute('stroke-width');
+  })).toBe('3.5');
+  const cost = await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-ramp-cost')?.textContent);
+  expect(cost).not.toBe('Adds about 0% to reading time on this article');
+  await page.evaluate(settings => (window as unknown as State).__stillpointHandle.applySettings?.(settings), DEFAULT_SETTINGS);
+  expect((await sample(page)).word).toBe(position);
+  expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-ramp-cost')?.textContent))
+    .toBe('Adds about 0% to reading time on this article');
+  expect(await page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-ramp-chart [data-blink]'))).toBeNull();
+});
+
+test('effective WPM appears only with ramp, stays stable across ticks and refreshes on settings changes', async ({ page }) => {
+  await mount(page, 'Done. one two three four five six. '.repeat(20), DEFAULT_SETTINGS);
+  const status = () => page.evaluate(() => (window as unknown as State).__stillpointShadow.querySelector('.sp-status')?.textContent ?? '');
+  expect(await status()).toMatch(/^350 WPM · 1 \/ 140 words · \d\d:\d\d left$/);
+  await page.evaluate(settings => (window as unknown as State).__stillpointHandle.applySettings?.(settings), {
+    ...DEFAULT_SETTINGS, comfort: READING_COMFORT,
+  });
+  await page.clock.runFor(250);
+  expect(await status()).toMatch(/^350 WPM · ≈\d+ effective · 1 \/ 140 words · \d\d:\d\d left$/);
+  const effective = (await status()).match(/≈\d+ effective/)?.[0];
+  await click(page, '[aria-label="Play"]');
+  for (let i = 0; i < 6; i++) {
+    await page.clock.runFor(500);
+    expect((await status()).match(/≈\d+ effective/)?.[0]).toBe(effective);
+  }
+  await click(page, '[aria-label="Pause"]');
+  await page.evaluate(() => (window as unknown as State).__stillpointHandle.setWpm(600));
+  await page.clock.runFor(250);
+  expect(await status()).toMatch(/^600 WPM · ≈\d+ effective/);
+  expect((await status()).match(/≈\d+ effective/)?.[0]).not.toBe(effective);
+  await page.evaluate(settings => (window as unknown as State).__stillpointHandle.applySettings?.(settings), {
+    ...DEFAULT_SETTINGS, comfort: { ...READING_COMFORT, ramp: false, blink: true },
+  });
+  await page.clock.runFor(250);
+  expect(await status()).toMatch(/^350 WPM · \d+ \/ 140 words · \d\d:\d\d left$/);
+  expect(await status()).not.toContain('effective');
 });

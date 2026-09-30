@@ -67,6 +67,7 @@ function position(value: unknown): ReaderPosition | null {
 }
 
 export const COMFORT_RANGES = {
+  rampStart: [40, 100, 1], rampWords: [1, 8, 1], blinkMs: [0, 1000, 10],
   saturation: [0, 100, 1], hueDegrees: [1, 25, 1], huePeriodSeconds: [5, 120, 1],
   pulseDwellMs: [120, 1500, 10], pulseGapSeconds: [0, 120, 0.1],
   pulseDurationSeconds: [0.1, 20, 0.1], pulseEverySeconds: [2, 120, 1],
@@ -81,11 +82,13 @@ function comfortSettings(value: unknown): ComfortSettings {
     const [min, max] = COMFORT_RANGES[key];
     result[key] = clamp(finiteNumber(raw[key], result[key]), min, max);
   }
-  for (const key of ['hue', 'pulse', 'drift', 'jitter', 'microBlank', 'restNudge', 'neutral'] as const) {
+  for (const key of ['ramp', 'blink', 'hue', 'pulse', 'drift', 'jitter', 'microBlank', 'restNudge', 'neutral'] as const) {
     result[key] = booleanValue(raw[key], result[key]);
   }
   if (raw.weight === 400 || raw.weight === 600 || raw.weight === 700 || raw.weight === 800) result.weight = raw.weight;
   if (raw.pulseTrigger === 'natural' || raw.pulseTrigger === 'sentence' || raw.pulseTrigger === 'long' || raw.pulseTrigger === 'timer') result.pulseTrigger = raw.pulseTrigger;
+  result.rampWords = Math.trunc(result.rampWords);
+  if (raw.rampCurve === 'linear' || raw.rampCurve === 'out' || raw.rampCurve === 'in' || raw.rampCurve === 'first') result.rampCurve = raw.rampCurve;
   return result;
 }
 
